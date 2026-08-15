@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>codemgf</title>
+<title>Cloud MGF</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#2563EB">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="eNuvemGF">
+<meta name="apple-mobile-web-app-title" content="Cloud MGF">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -183,7 +183,7 @@
       align-items:stretch; gap:2px; padding:26px 14px;
     }
     .bottomnav-inner::before{
-      content:"eNuvemGF"; display:block; font-size:17px; font-weight:800;
+      content:"Cloud MGF"; display:block; font-size:17px; font-weight:800;
       color:var(--ink); letter-spacing:-.01em; padding:0 10px 22px 10px;
     }
     .nav-btn{
@@ -328,12 +328,12 @@
 
 <div class="loading-screen" id="loadingScreen">
   <div class="spinner"></div>
-  <div>Carregando eNuvemGF...</div>
+  <div>Carregando Cloud MGF...</div>
 </div>
 
 <div class="auth-screen" id="authScreen" style="display:none;">
   <div class="auth-box">
-    <div class="auth-logo">eNuvemGF</div>
+    <div class="auth-logo">Cloud MGF</div>
     <div class="auth-sub">Entre com sua conta para acessar</div>
     <div class="card" style="padding:20px;">
       <div class="form-field"><label>E-mail</label><input type="email" id="au_email" autocomplete="username"></div>
@@ -462,7 +462,7 @@
     <div class="section-title">Cadastro público (online)</div>
     <div class="card" style="padding:16px;">
       <p class="field-label">Link do formulário online</p>
-      <p class="field-val" style="margin-top:6px; color:var(--primary); word-break:break-all;">enuvemgf.com.br/cadastro</p>
+      <p class="field-val" style="margin-top:6px; color:var(--primary); word-break:break-all;">cloudmgf.com.br/cadastro</p>
       <p style="font-size:12px; color:var(--ink-2); margin-top:8px;">Envie esse link para visitantes e novos convertidos preencherem sozinhos, pelo celular. Cada envio cai em <b id="pendCount">0</b> pendência(s) até um líder aprovar e definir a categoria e a célula da pessoa.</p>
       <button class="btn secondary" style="margin-top:12px;" onclick="verPendentes()">Ver cadastros pendentes</button>
     </div>
@@ -627,7 +627,7 @@ async function bootApp(){
   data = await loadData();
   document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('app').style.display = '';
-  renderInicio();
+  goTo('inicio');
 }
 
 (async function init(){
@@ -666,8 +666,8 @@ function goTo(screen, opts){
   const navMap = {inicio:'inicio', pessoas:'pessoas', perfil:'pessoas', celulas:'celulas', 'celula-detalhe':'celulas', financeiro:'financeiro', mais:'mais', cursos:'mais','curso-detalhe':'mais', rede:'mais', carnes:'mais', relatorios:'mais'};
   const navBtn = document.querySelector('.nav-btn[data-nav="'+navMap[screen]+'"]');
   if(navBtn) navBtn.classList.add('active');
-  document.getElementById('topTitle').textContent = titles[screen] || 'codemgf';
-  document.getElementById('fabBtn').style.display = ['inicio','perfil','celula-detalhe','curso-detalhe','rede'].includes(screen) ? 'none':'flex';
+  document.getElementById('topTitle').textContent = titles[screen] || 'Cloud MGF';
+  document.getElementById('fabBtn').style.display = ['pessoas','celulas','financeiro','cursos','carnes'].includes(screen) ? 'flex':'none';
   state.screen = screen;
   if(opts.id){
     if(screen==='perfil') state.pessoaAtual = opts.id;
@@ -1005,28 +1005,41 @@ function renderFinanceiro(periodo){
   const el = document.getElementById('listaFinanceiro');
   const recentes = filtrados.slice().sort(function(a,b){return (b.data||'').localeCompare(a.data||'');}).slice(0,15);
   el.innerHTML = recentes.length ? recentes.map(function(f){
-    return '<div class="list-row"><div class="list-icon '+(f.tipo==='receita'?'green':'red')+'">'+(f.tipo==='receita'?'↑':'↓')+'</div><div class="list-main"><div class="list-title">'+f.desc+'</div><div class="list-sub">'+f.categoria+' · '+fmtDate(f.data)+'</div></div><div class="list-value '+(f.tipo==='receita'?'pos':'neg')+'">'+(f.tipo==='despesa'?'-':'+')+fmtMoney(f.valor)+'</div></div>';
+    const pessoa = f.pessoa ? data.pessoas.find(function(p){return p.id===f.pessoa;}) : null;
+    const sub = f.categoria+' · '+fmtDate(f.data)+(pessoa?' · '+pessoa.nome:'');
+    return '<div class="list-row" '+(pessoa?'onclick="goTo(\'perfil\',{id:\''+pessoa.id+'\'})"':'')+'><div class="list-icon '+(f.tipo==='receita'?'green':'red')+'">'+(f.tipo==='receita'?'↑':'↓')+'</div><div class="list-main"><div class="list-title">'+f.desc+'</div><div class="list-sub">'+sub+'</div></div><div class="list-value '+(f.tipo==='receita'?'pos':'neg')+'">'+(f.tipo==='despesa'?'-':'+')+fmtMoney(f.valor)+'</div></div>';
   }).join('') : '<div class="empty-state"><div class="icon">$</div><div class="txt">Nenhuma movimentação neste período</div></div>';
 }
 
 function formFinanceiro(){
+  const pessoaOptions = data.pessoas.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('');
   openSheet('Nova movimentação',
     '<div class="form-field"><label>Tipo</label><select id="fi_tipo"><option value="receita">Receita</option><option value="despesa">Despesa</option></select></div>'+
     '<div class="form-field"><label>Descrição</label><input id="fi_desc"></div>'+
     '<div class="form-row2"><div class="form-field"><label>Categoria</label><input id="fi_cat" placeholder="Dízimo, Oferta, Aluguel..."></div>'+
     '<div class="form-field"><label>Valor (R$)</label><input type="number" step="0.01" id="fi_valor"></div></div>'+
+    '<div class="form-field"><label>Pessoa (opcional)</label><select id="fi_pessoa"><option value="">Nenhuma / anônimo</option>'+pessoaOptions+'</select></div>'+
     '<div class="form-row2"><div class="form-field"><label>Data</label><input type="date" id="fi_data" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
     '<div class="form-field"><label>Status</label><select id="fi_status"><option value="pago">Pago</option><option value="pendente">Pendente</option></select></div></div>',
   function(){
     const desc = document.getElementById('fi_desc').value.trim();
     const valor = parseFloat(document.getElementById('fi_valor').value);
     if(!desc || isNaN(valor)){ showToast('Preencha descrição e valor.'); return; }
+    const tipo = document.getElementById('fi_tipo').value;
+    const categoria = document.getElementById('fi_cat').value.trim() || 'Outras';
+    const dataMov = document.getElementById('fi_data').value;
+    const pessoaId = document.getElementById('fi_pessoa').value;
     data.financeiro.push({
-      id: uid(), tipo: document.getElementById('fi_tipo').value, desc:desc,
-      categoria: document.getElementById('fi_cat').value.trim() || 'Outras',
-      valor: valor, data: document.getElementById('fi_data').value,
+      id: uid(), tipo: tipo, desc:desc,
+      categoria: categoria,
+      valor: valor, data: dataMov,
       status: document.getElementById('fi_status').value,
+      pessoa: pessoaId || null,
     });
+    if(pessoaId && tipo==='receita'){
+      const p = data.pessoas.find(function(x){return x.id===pessoaId;});
+      if(p){ p.contribuicoes = p.contribuicoes||[]; p.contribuicoes.push({desc:desc, categoria:categoria, valor:valor, data:dataMov}); }
+    }
     saveData(); closeSheet(); showToast('Movimentação salva.'); renderFinanceiro();
   });
 }
