@@ -35,6 +35,23 @@
     --radius-sm:10px;
     --shadow:0 1px 2px rgba(15,23,42,.04), 0 2px 8px rgba(15,23,42,.04);
   }
+  html[data-theme="dark"]{
+    --primary:#3B82F6;
+    --primary-dark:#2563EB;
+    --primary-soft:#152238;
+    --growth:#34D399;
+    --growth-soft:#122a20;
+    --bg:#0B1220;
+    --surface:#151E2E;
+    --ink:#E2E8F0;
+    --ink-2:#94A3B8;
+    --warn:#F59E0B;
+    --warn-soft:#2a2313;
+    --danger:#F87171;
+    --danger-soft:#2a1616;
+    --line:#26324A;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.3);
+  }
   *{box-sizing:border-box;}
   html,body{margin:0; padding:0;}
   body{
@@ -461,6 +478,15 @@
 
   <section class="screen" id="screen-celulas">
     <div class="searchbar"><span class="ic">⌕</span><input id="buscaCelulas" placeholder="Buscar célula..." oninput="renderCelulas()"></div>
+    <div class="filter-row" id="filtroCelulas">
+      <div class="filter-chip active" data-cat="todos">Todas</div>
+      <div class="filter-chip" data-cat="Jovens">Jovens</div>
+      <div class="filter-chip" data-cat="Casais">Casais</div>
+      <div class="filter-chip" data-cat="Mulheres">Mulheres</div>
+      <div class="filter-chip" data-cat="Homens">Homens</div>
+      <div class="filter-chip" data-cat="Infantil">Infantil</div>
+      <div class="filter-chip" data-cat="Mista">Mista</div>
+    </div>
     <div class="section-title" style="margin-top:2px;">Todas as células</div>
     <div class="card list-card" id="listaCelulas"></div>
   </section>
@@ -476,6 +502,11 @@
   </section>
 
   <section class="screen" id="screen-financeiro">
+    <div class="tab-row" id="finTabs">
+      <div class="tab-btn active" data-tab="geral">Visão geral</div>
+      <div class="tab-btn" data-tab="estatisticas">Estatísticas</div>
+    </div>
+    <div id="finGeral">
     <div class="balance-card">
       <div class="label">Saldo atual</div>
       <div class="value" id="fSaldo">R$ 0,00</div>
@@ -497,9 +528,10 @@
       <div class="kpi"><div class="label">Contas a pagar</div><div class="value" id="fAPagar" style="color:var(--danger);">R$ 0,00</div></div>
       <div class="kpi"><div class="label">Contas a receber</div><div class="value" id="fAReceber" style="color:var(--warn);">R$ 0,00</div></div>
     </div>
-    <button class="btn secondary" style="margin-top:14px;" onclick="verEstatisticasFinanceiro()">📊 Ver estatísticas completas</button>
     <div class="section-title">Movimentações recentes</div>
     <div class="card list-card" id="listaFinanceiro"></div>
+    </div>
+    <div id="finEstatisticas" style="display:none;"></div>
   </section>
 
   <section class="screen" id="screen-mais">
@@ -521,19 +553,28 @@
 
     <div class="section-title">Conta</div>
     <div class="card list-card">
-      <div class="list-row"><div class="list-icon blue">⚙</div><div class="list-main"><div class="list-title">Configurações</div></div></div>
-      <div class="list-row"><div class="list-icon blue">◐</div><div class="list-main"><div class="list-title">Categorias personalizadas</div></div></div>
+      <div class="list-row" onclick="abrirConfiguracoes()"><div class="list-icon blue">⚙</div><div class="list-main"><div class="list-title">Configurações</div></div></div>
     </div>
   </section>
 
   <section class="screen" id="screen-cursos">
     <div class="subheader"><button class="back-btn" onclick="goTo('mais')">←</button><h2>Ensino e discipulado</h2></div>
-    <div class="section-title" style="margin-top:2px;">Cursos cadastrados</div>
+    <div class="searchbar"><span class="ic">⌕</span><input id="buscaCursos" placeholder="Buscar curso..." oninput="renderCursos()"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+      <div class="section-title" style="margin:0;">Cursos cadastrados</div>
+      <button class="btn secondary" style="padding:8px 14px; font-size:12.5px;" onclick="abrirConsultaCursos()">Cruzar cursos</button>
+    </div>
     <div class="card list-card" id="listaCursos"></div>
   </section>
 
+  <section class="screen" id="screen-cursos-consulta">
+    <div class="subheader"><button class="back-btn" onclick="goTo('cursos')">←</button><h2>Resultado da consulta</h2></div>
+    <div id="cursosConsultaResumo" style="font-size:12.5px; color:var(--ink-2); margin-bottom:10px;"></div>
+    <div class="card list-card" id="cursosConsultaContent"></div>
+  </section>
+
   <section class="screen" id="screen-curso-detalhe">
-    <div class="subheader"><button class="back-btn" onclick="goTo('cursos')">←</button><h2 id="cursoNome">Curso</h2></div>
+    <div class="subheader"><button class="back-btn" onclick="goTo('cursos')">←</button><h2 id="cursoNome">Curso</h2><button class="back-btn" style="margin-left:auto; color:#d9534f;" title="Apagar curso" onclick="excluirCurso()">🗑</button></div>
     <div class="tab-row">
       <div class="tab-btn active" data-tab="fez">Já fizeram</div>
       <div class="tab-btn" data-tab="naofez">Não fizeram</div>
@@ -619,11 +660,13 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ROW_ID = 'main'; // uma única igreja = uma única linha de dados compartilhada
 
 function seedData(){
+  const idUV = uid();
   return {
     pessoas: [], celulas: [], cursos: [
-      {id:uid(), nome:'Discipulado da Vida', categoria:'Discipulado', carga:'12h'},
-      {id:uid(), nome:'Escola de Líderes', categoria:'Liderança', carga:'20h'},
-      {id:uid(), nome:'Batismo', categoria:'Fundamentos', carga:'4h'},
+      {id:uid(), nome:'3D', categoria:'Discipulado', carga:'', pre:''},
+      {id:idUV, nome:'Universidade da Vida', categoria:'Discipulado', carga:'', pre:''},
+      {id:uid(), nome:'Capacitação Destino', categoria:'Liderança', carga:'', pre:idUV},
+      {id:uid(), nome:'Afiando o Machado', categoria:'Liderança', carga:'', pre:''},
     ],
     financeiro: [], relatoriosCelula: [], carnes: [], pendentes: [],
   };
@@ -707,7 +750,7 @@ function showToast(msg){ const t=document.getElementById('toast'); t.textContent
 
 const titles = {
   inicio:'Início', pessoas:'Pessoas', celulas:'Células', financeiro:'Financeiro', mais:'Mais',
-  perfil:'Perfil', 'celula-detalhe':'Célula', cursos:'Ensino', 'curso-detalhe':'Curso', rede:'Rede de discípulos',
+  perfil:'Perfil', 'celula-detalhe':'Célula', cursos:'Ensino', 'curso-detalhe':'Curso', 'cursos-consulta':'Consulta', rede:'Rede de discípulos',
   carnes:'Carnês', relatorios:'Relatórios'
 };
 let state = { screen:'inicio', pessoaAtual:null, celulaAtual:null, cursoAtual:null };
@@ -717,7 +760,7 @@ function goTo(screen, opts){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+screen).classList.add('active');
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  const navMap = {inicio:'inicio', pessoas:'pessoas', perfil:'pessoas', celulas:'celulas', 'celula-detalhe':'celulas', financeiro:'financeiro', mais:'mais', cursos:'mais','curso-detalhe':'mais', rede:'mais', carnes:'mais', relatorios:'mais'};
+  const navMap = {inicio:'inicio', pessoas:'pessoas', perfil:'pessoas', celulas:'celulas', 'celula-detalhe':'celulas', financeiro:'financeiro', mais:'mais', cursos:'mais','curso-detalhe':'mais', 'cursos-consulta':'mais', rede:'mais', carnes:'mais', relatorios:'mais'};
   const navBtn = document.querySelector('.nav-btn[data-nav="'+navMap[screen]+'"]');
   if(navBtn) navBtn.classList.add('active');
   document.getElementById('topTitle').textContent = titles[screen] || 'Cloud MGF';
@@ -757,6 +800,33 @@ function openSheet(title, html, onSave, saveLabel){
 }
 function closeSheet(){ sheetOverlay.classList.remove('open'); }
 sheetOverlay.addEventListener('click', function(e){ if(e.target===sheetOverlay) closeSheet(); });
+
+function aplicarTema(tema){
+  document.documentElement.setAttribute('data-theme', tema);
+  try{ localStorage.setItem('enuvemgf_tema', tema); }catch(e){}
+}
+function abrirConfiguracoes(){
+  const atual = document.documentElement.getAttribute('data-theme')==='dark';
+  openSheet('Configurações',
+    '<div class="list-row" style="padding:4px 0;"><div class="list-main"><div class="list-title">Modo escuro</div></div>'+
+      '<label style="position:relative; display:inline-block; width:44px; height:26px;">'+
+        '<input type="checkbox" id="cfg_dark" '+(atual?'checked':'')+' style="opacity:0; width:0; height:0;">'+
+        '<span id="cfg_dark_track" style="position:absolute; inset:0; background:'+(atual?'var(--primary)':'var(--line)')+'; border-radius:26px; transition:.2s; cursor:pointer;" onclick="const c=document.getElementById(\'cfg_dark\'); c.checked=!c.checked; c.dispatchEvent(new Event(\'change\'));"></span>'+
+        '<span id="cfg_dark_knob" style="position:absolute; top:3px; left:'+(atual?'21px':'3px')+'; width:20px; height:20px; background:#fff; border-radius:50%; transition:.2s; pointer-events:none;"></span>'+
+      '</label>'+
+    '</div>',
+  function(){ closeSheet(); }, 'Fechar');
+  document.getElementById('cfg_dark').addEventListener('change', function(e){
+    aplicarTema(e.target.checked ? 'dark' : 'light');
+    document.getElementById('cfg_dark_track').style.background = e.target.checked ? 'var(--primary)' : 'var(--line)';
+    document.getElementById('cfg_dark_knob').style.left = e.target.checked ? '21px' : '3px';
+  });
+}
+(function(){
+  let tema = 'light';
+  try{ tema = localStorage.getItem('enuvemgf_tema') || 'light'; }catch(e){}
+  aplicarTema(tema);
+})();
 
 document.getElementById('fabBtn').addEventListener('click', function(){
   if(state.screen==='pessoas') return formPessoa();
@@ -808,6 +878,13 @@ document.getElementById('filtroPessoas').addEventListener('click', function(e){
   chip.classList.add('active'); filtroPessoaAtivo = chip.dataset.cat; renderPessoas();
 });
 
+let filtroCelulaAtivo = 'todos';
+document.getElementById('filtroCelulas').addEventListener('click', function(e){
+  const chip = e.target.closest('.filter-chip'); if(!chip) return;
+  document.querySelectorAll('#filtroCelulas .filter-chip').forEach(function(c){c.classList.remove('active');});
+  chip.classList.add('active'); filtroCelulaAtivo = chip.dataset.cat; renderCelulas();
+});
+
 function renderPessoas(){
   const busca = (document.getElementById('buscaPessoas').value||'').toLowerCase();
   let lista = data.pessoas.filter(function(p){return p.nome.toLowerCase().indexOf(busca)!==-1;});
@@ -842,11 +919,19 @@ function formPessoa(editId){
       '<button type="button" class="btn secondary" style="margin-top:6px; padding:8px; font-size:12.5px;" onclick="quickAddCelula()">+ Cadastrar nova célula</button></div></div>'+
     '<div class="form-field"><label>Discipulador (líder responsável)</label><select id="p_disc"><option value="">Nenhum</option>'+liderOptions+'</select>'+
       '<button type="button" class="btn secondary" style="margin-top:6px; padding:8px; font-size:12.5px;" onclick="quickAddLider()">+ Cadastrar novo líder</button></div>'+
-    '<div class="form-field"><label>Observações</label><textarea id="p_obs">'+(item.obs||'')+'</textarea></div>',
+    '<div class="form-field"><label>Observações</label><textarea id="p_obs">'+(item.obs||'')+'</textarea></div>'+
+    '<div class="form-field"><label>Cursos já concluídos</label>'+
+      '<div style="display:flex; flex-direction:column; gap:6px;">'+
+      (data.cursos.length ? data.cursos.map(function(c){
+        const marcado = (item.cursos||[]).includes(c.id);
+        return '<label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13.5px; color:var(--ink-2);"><input type="checkbox" class="p_curso_chk" value="'+c.id+'" style="width:auto;" '+(marcado?'checked':'')+'> '+c.nome+'</label>';
+      }).join('') : '<div style="font-size:12.5px; color:var(--ink-3);">Nenhum curso cadastrado ainda.</div>')+
+      '</div></div>',
   function(){
     const nome = document.getElementById('p_nome').value.trim();
     if(!nome){ showToast('Informe o nome.'); return; }
     const semData = document.getElementById('p_conv_nl').checked;
+    const cursosMarcados = Array.prototype.slice.call(document.querySelectorAll('.p_curso_chk:checked')).map(function(el){return el.value;});
     const obj = {
       id: editId || uid(), nome:nome,
       whats: document.getElementById('p_whats').value.trim(),
@@ -860,7 +945,7 @@ function formPessoa(editId){
       celula: document.getElementById('p_celula').value,
       discipulador: document.getElementById('p_disc').value,
       obs: document.getElementById('p_obs').value.trim(),
-      contribuicoes: item.contribuicoes||[], cursos: item.cursos||[], anotacoes: item.anotacoes||[],
+      contribuicoes: item.contribuicoes||[], cursos: cursosMarcados, anotacoes: item.anotacoes||[],
     };
     if(editId){ data.pessoas[data.pessoas.findIndex(function(p){return p.id===editId;})] = obj; } else { data.pessoas.push(obj); }
     saveData(); closeSheet(); showToast('Pessoa salva.');
@@ -930,7 +1015,10 @@ function renderPerfil(){
   } else if(pfTabAtiva==='cursos'){
     const rows = data.cursos.map(function(c){
       const feito = (p.cursos||[]).includes(c.id);
-      return '<div class="list-row" onclick="toggleCurso(\''+p.id+'\',\''+c.id+'\')"><div class="list-icon '+(feito?'green':'blue')+'">'+(feito?'✓':'○')+'</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+c.categoria+'</div></div><span class="chip '+(feito?'green':'gray')+'">'+(feito?'Concluído':'Pendente')+'</span></div>';
+      const pre = c.pre ? data.cursos.find(function(x){return x.id===c.pre;}) : null;
+      const bloqueado = !feito && pre && !(p.cursos||[]).includes(pre.id);
+      const sub = bloqueado ? ('Requer: '+pre.nome) : c.categoria;
+      return '<div class="list-row" onclick="toggleCurso(\''+p.id+'\',\''+c.id+'\')"><div class="list-icon '+(feito?'green':(bloqueado?'gray':'blue'))+'">'+(feito?'✓':'○')+'</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+sub+'</div></div><span class="chip '+(feito?'green':(bloqueado?'gray':'gray'))+'">'+(feito?'Concluído':(bloqueado?'Bloqueado':'Pendente'))+'</span></div>';
     }).join('');
     content.innerHTML = '<div class="card list-card">'+rows+'</div>';
   } else if(pfTabAtiva==='anot'){
@@ -941,9 +1029,18 @@ function renderPerfil(){
 
 function toggleCurso(pessoaId, cursoId){
   const p = data.pessoas.find(function(x){return x.id===pessoaId;});
+  const c = data.cursos.find(function(x){return x.id===cursoId;});
   p.cursos = p.cursos||[];
   const i = p.cursos.indexOf(cursoId);
-  if(i>=0) p.cursos.splice(i,1); else p.cursos.push(cursoId);
+  if(i>=0){ p.cursos.splice(i,1); }
+  else {
+    if(c && c.pre && !p.cursos.includes(c.pre)){
+      const pre = data.cursos.find(function(x){return x.id===c.pre;});
+      showToast('É preciso concluir "'+(pre?pre.nome:'o pré-requisito')+'" antes.');
+      return;
+    }
+    p.cursos.push(cursoId);
+  }
   saveData(); renderPerfil();
 }
 function addAnotacao(pessoaId){
@@ -958,13 +1055,17 @@ function addAnotacao(pessoaId){
 
 function renderCelulas(){
   const busca = (document.getElementById('buscaCelulas').value||'').toLowerCase();
-  const lista = data.celulas.filter(function(c){return c.nome.toLowerCase().indexOf(busca)!==-1;});
+  const lista = data.celulas.filter(function(c){
+    const bateBusca = c.nome.toLowerCase().indexOf(busca)!==-1;
+    const bateCat = filtroCelulaAtivo==='todos' || c.categoria===filtroCelulaAtivo;
+    return bateBusca && bateCat;
+  });
   const el = document.getElementById('listaCelulas');
   if(lista.length===0){ el.innerHTML = '<div class="empty-state"><div class="icon">▣</div><div class="txt">Nenhuma célula cadastrada</div></div>'; return; }
   el.innerHTML = lista.map(function(c){
     const membros = data.pessoas.filter(function(p){return p.celula===c.id;}).length;
     const lider = data.pessoas.find(function(p){return p.id===c.lider;});
-    return '<div class="list-row" onclick="goTo(\'celula-detalhe\',{id:\''+c.id+'\'})"><div class="list-icon blue">▣</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+(lider?lider.nome:'Sem líder')+' · '+(c.dia||'')+'</div></div><span class="chip blue">'+membros+'</span></div>';
+    return '<div class="list-row" onclick="goTo(\'celula-detalhe\',{id:\''+c.id+'\'})"><div class="list-icon blue">▣</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+c.categoria+' · '+(lider?lider.nome:'Sem líder')+'</div></div><span class="chip blue">'+membros+'</span></div>';
   }).join('');
 }
 
@@ -1152,7 +1253,16 @@ function formFinanceiro(){
   });
 }
 
-function verEstatisticasFinanceiro(){
+let finTabAtiva = 'geral';
+document.getElementById('finTabs').addEventListener('click', function(e){
+  const t = e.target.closest('.tab-btn'); if(!t) return;
+  document.querySelectorAll('#finTabs .tab-btn').forEach(function(x){x.classList.remove('active');});
+  t.classList.add('active'); finTabAtiva = t.dataset.tab;
+  document.getElementById('finGeral').style.display = finTabAtiva==='geral' ? '' : 'none';
+  document.getElementById('finEstatisticas').style.display = finTabAtiva==='estatisticas' ? '' : 'none';
+  if(finTabAtiva==='estatisticas') renderEstatisticasFinanceiro();
+});
+function renderEstatisticasFinanceiro(){
   function soma(items, tipo){ return items.filter(function(f){return f.tipo===tipo;}).reduce(function(s,f){return s+Number(f.valor||0);},0); }
   const periodos = [
     {label:'Hoje', items:periodoFiltro(data.financeiro,'dia')},
@@ -1160,15 +1270,27 @@ function verEstatisticasFinanceiro(){
     {label:'Este mês', items:periodoFiltro(data.financeiro,'mes')},
     {label:'Este ano', items:periodoFiltro(data.financeiro,'ano')},
   ];
+  const maxPeriodo = Math.max.apply(null, periodos.map(function(p){return Math.max(soma(p.items,'receita'), soma(p.items,'despesa'));}).concat([1]));
   const periodosHtml = periodos.map(function(p){
     const ent = soma(p.items,'receita'), sai = soma(p.items,'despesa');
-    return '<div class="list-row"><div class="list-main"><div class="list-title">'+p.label+'</div><div class="list-sub">Entradas '+fmtMoney(ent)+' · Saídas '+fmtMoney(sai)+'</div></div><div class="list-value '+((ent-sai)>=0?'pos':'neg')+'">'+fmtMoney(ent-sai)+'</div></div>';
+    return '<div style="margin-bottom:14px;">'+
+      '<div style="display:flex; justify-content:space-between; font-size:12.5px; font-weight:600; color:var(--ink-2); margin-bottom:5px;"><span>'+p.label+'</span><span>'+fmtMoney(ent-sai)+'</span></div>'+
+      '<div style="display:flex; flex-direction:column; gap:3px;">'+
+        '<div style="display:flex; align-items:center; gap:8px;"><div style="width:'+Math.max((ent/maxPeriodo)*100,ent>0?3:0)+'%; background:var(--growth); height:8px; border-radius:4px;"></div><span style="font-size:11px; color:var(--ink-2); white-space:nowrap;">'+fmtMoney(ent)+'</span></div>'+
+        '<div style="display:flex; align-items:center; gap:8px;"><div style="width:'+Math.max((sai/maxPeriodo)*100,sai>0?3:0)+'%; background:var(--danger); height:8px; border-radius:4px;"></div><span style="font-size:11px; color:var(--ink-2); white-space:nowrap;">'+fmtMoney(sai)+'</span></div>'+
+      '</div></div>';
   }).join('');
 
   const categoriasReceita = ['Dízimo','Oferta','Oferta Extraordinária'];
-  const catHtml = categoriasReceita.map(function(c){
-    const total = data.financeiro.filter(function(f){return f.tipo==='receita' && f.categoria===c;}).reduce(function(s,f){return s+Number(f.valor||0);},0);
-    return '<div class="list-row"><div class="list-main"><div class="list-title">'+c+'</div></div><div class="list-value pos">'+fmtMoney(total)+'</div></div>';
+  const totaisCat = categoriasReceita.map(function(c){
+    return { nome:c, total: data.financeiro.filter(function(f){return f.tipo==='receita' && f.categoria===c;}).reduce(function(s,f){return s+Number(f.valor||0);},0) };
+  });
+  const maxCat = Math.max.apply(null, totaisCat.map(function(c){return c.total;}).concat([1]));
+  const catHtml = totaisCat.map(function(c){
+    return '<div style="margin-bottom:10px;">'+
+      '<div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-2); margin-bottom:4px;"><span>'+c.nome+'</span><span style="font-weight:600; color:var(--ink-1);">'+fmtMoney(c.total)+'</span></div>'+
+      '<div style="background:var(--primary-soft); border-radius:4px; height:8px;"><div style="width:'+Math.max((c.total/maxCat)*100,c.total>0?3:0)+'%; background:var(--primary); height:8px; border-radius:4px;"></div></div>'+
+    '</div>';
   }).join('');
 
   const porPessoa = {};
@@ -1178,41 +1300,96 @@ function verEstatisticasFinanceiro(){
   const ranking = Object.keys(porPessoa).map(function(id){
     const p = data.pessoas.find(function(x){return x.id===id;});
     return { nome: p?p.nome:'—', total: porPessoa[id] };
-  }).sort(function(a,b){return b.total-a.total;}).slice(0,10);
+  }).sort(function(a,b){return b.total-a.total;}).slice(0,5);
   const rankingHtml = ranking.length ? ranking.map(function(r,i){
     return '<div class="list-row"><div class="list-icon blue">'+(i+1)+'</div><div class="list-main"><div class="list-title">'+r.nome+'</div></div><div class="list-value pos">'+fmtMoney(r.total)+'</div></div>';
-  }).join('') : '<div class="empty-state"><div class="icon">$</div><div class="txt">Nenhuma contribuição associada a pessoas ainda</div></div>';
+  }).join('') : '<div class="empty-state"><div class="txt">Nenhuma contribuição associada a pessoas ainda</div></div>';
 
-  const html =
-    '<div class="section-title" style="margin-top:0;">Por período</div>'+
-    '<div class="card list-card">'+periodosHtml+'</div>'+
-    '<div class="section-title">Por categoria (histórico completo)</div>'+
-    '<div class="card list-card">'+catHtml+'</div>'+
-    '<div class="section-title">Quem mais contribuiu (histórico completo)</div>'+
+  document.getElementById('finEstatisticas').innerHTML =
+    '<div style="display:flex; align-items:center; justify-content:space-between; margin:2px 0 12px;"><div class="section-title" style="margin:0;">Por período</div><span style="font-size:18px; color:var(--primary); line-height:1;">▦</span></div>'+
+    '<div class="card" style="padding:16px;">'+periodosHtml+'</div>'+
+    '<div class="section-title">Por categoria</div>'+
+    '<div class="card" style="padding:16px;">'+catHtml+'</div>'+
+    '<div class="section-title">Top 5 contribuintes</div>'+
     '<div class="card list-card">'+rankingHtml+'</div>';
-
-  openSheet('Estatísticas financeiras', html, closeSheet, 'Fechar');
 }
 
 function renderCursos(){
+  const busca = (document.getElementById('buscaCursos').value||'').toLowerCase();
   const el = document.getElementById('listaCursos');
-  el.innerHTML = data.cursos.map(function(c){
+  const lista = data.cursos.filter(function(c){return c.nome.toLowerCase().indexOf(busca)!==-1;});
+  if(lista.length===0){ el.innerHTML = '<div class="empty-state"><div class="icon">▤</div><div class="txt">Nenhum curso encontrado</div></div>'; return; }
+  el.innerHTML = lista.map(function(c){
     const feitos = data.pessoas.filter(function(p){return (p.cursos||[]).includes(c.id);}).length;
-    return '<div class="list-row" onclick="goTo(\'curso-detalhe\',{id:\''+c.id+'\'})"><div class="list-icon blue">▤</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+c.categoria+' · '+c.carga+'</div></div><span class="chip green">'+feitos+'</span></div>';
+    return '<div class="list-row" onclick="goTo(\'curso-detalhe\',{id:\''+c.id+'\'})"><div class="list-icon blue">▤</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+c.categoria+(c.carga?' · '+c.carga:'')+'</div></div><span class="chip green">'+feitos+'</span></div>';
   }).join('');
 }
+function abrirConsultaCursos(){
+  const opts = data.cursos.map(function(c){return '<label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13.5px; color:var(--ink-2); padding:6px 0;"><input type="checkbox" class="cq_curso" value="'+c.id+'" style="width:auto;"> '+c.nome+'</label>';}).join('');
+  openSheet('Cruzar cursos',
+    '<div class="form-field"><label>Cursos</label><div style="display:flex; flex-direction:column;">'+(opts||'<div style="font-size:12.5px; color:var(--ink-3);">Nenhum curso cadastrado.</div>')+'</div></div>'+
+    '<div class="form-field"><label>Condição</label><select id="cq_modo">'+
+      '<option value="todos">Fez todos os selecionados</option>'+
+      '<option value="algum">Fez pelo menos um dos selecionados</option>'+
+      '<option value="nenhum">Não fez nenhum dos selecionados</option>'+
+    '</select></div>',
+  function(){
+    const ids = Array.prototype.slice.call(document.querySelectorAll('.cq_curso:checked')).map(function(el){return el.value;});
+    if(ids.length===0){ showToast('Selecione ao menos um curso.'); return; }
+    const modo = document.getElementById('cq_modo').value;
+    closeSheet();
+    executarConsultaCursos(ids, modo);
+  }, 'Buscar');
+}
+function executarConsultaCursos(ids, modo){
+  const nomes = ids.map(function(id){ const c = data.cursos.find(function(x){return x.id===id;}); return c?c.nome:''; });
+  let resultado;
+  if(modo==='todos'){
+    resultado = data.pessoas.filter(function(p){ return ids.every(function(id){return (p.cursos||[]).includes(id);}); });
+  } else if(modo==='algum'){
+    resultado = data.pessoas.filter(function(p){ return ids.some(function(id){return (p.cursos||[]).includes(id);}); });
+  } else {
+    resultado = data.pessoas.filter(function(p){ return !ids.some(function(id){return (p.cursos||[]).includes(id);}); });
+  }
+  const modoTexto = modo==='todos' ? 'que fizeram todos: ' : (modo==='algum' ? 'que fizeram pelo menos um: ' : 'que não fizeram nenhum: ');
+  document.getElementById('cursosConsultaResumo').textContent = resultado.length+' pessoa(s) '+modoTexto+nomes.join(', ');
+  const rows = resultado.map(function(p){return '<div class="list-row" onclick="goTo(\'perfil\',{id:\''+p.id+'\'})"><div class="list-icon blue">'+initials(p.nome)+'</div><div class="list-main"><div class="list-title">'+p.nome+'</div><div class="list-sub">'+p.categoria+'</div></div></div>';}).join('');
+  document.getElementById('cursosConsultaContent').innerHTML = resultado.length ? rows : '<div class="empty-state"><div class="txt">Nenhuma pessoa encontrada</div></div>';
+  goTo('cursos-consulta');
+}
 function formCurso(){
+  const preOptions = data.cursos.map(function(c){return '<option value="'+c.id+'">'+c.nome+'</option>';}).join('');
   openSheet('Novo curso',
     '<div class="form-field"><label>Nome do curso</label><input id="cu_nome"></div>'+
-    '<div class="form-row2"><div class="form-field"><label>Categoria</label><input id="cu_cat" placeholder="Discipulado, Liderança..."></div>'+
-    '<div class="form-field"><label>Carga horária</label><input id="cu_carga" placeholder="8h"></div></div>'+
+    '<div class="form-field"><label>Categoria</label><input id="cu_cat" placeholder="Discipulado, Liderança..."></div>'+
+    '<div class="form-field"><label>Duração</label>'+
+      '<div class="form-row2">'+
+        '<input id="cu_carga_valor" type="number" min="0" step="1" placeholder="Ex: 8">'+
+        '<select id="cu_carga_unidade"><option value="h">Horas</option><option value="mes">Meses</option></select>'+
+      '</div>'+
+    '</div>'+
+    '<div class="form-field"><label>Pré-requisito</label><select id="cu_pre"><option value="">Nenhum</option>'+preOptions+'</select><div style="font-size:11.5px; color:var(--ink-2); margin-top:4px;">A pessoa só pode ser marcada como concluída neste curso se já tiver concluído o pré-requisito.</div></div>'+
     '<div class="form-field"><label>Descrição</label><textarea id="cu_desc"></textarea></div>',
   function(){
     const nome = document.getElementById('cu_nome').value.trim();
     if(!nome){ showToast('Informe o nome do curso.'); return; }
-    data.cursos.push({id:uid(), nome:nome, categoria:document.getElementById('cu_cat').value.trim()||'Geral', carga:document.getElementById('cu_carga').value.trim(), desc:document.getElementById('cu_desc').value.trim()});
+    const valor = document.getElementById('cu_carga_valor').value.trim();
+    const unidade = document.getElementById('cu_carga_unidade').value;
+    const carga = valor ? (valor + (unidade==='mes' ? (valor==='1'?' mês':' meses') : 'h')) : '';
+    data.cursos.push({id:uid(), nome:nome, categoria:document.getElementById('cu_cat').value.trim()||'Geral', carga:carga, pre:document.getElementById('cu_pre').value, desc:document.getElementById('cu_desc').value.trim()});
     saveData(); closeSheet(); showToast('Curso criado.'); renderCursos();
   });
+}
+function excluirCurso(){
+  const c = data.cursos.find(function(x){return x.id===state.cursoAtual;});
+  if(!c) return;
+  const senha = prompt('Digite a senha para apagar o curso "'+c.nome+'":');
+  if(senha === null) return;
+  if(senha !== 'admin123'){ showToast('Senha incorreta. Curso não apagado.'); return; }
+  if(!confirm('Tem certeza que deseja apagar o curso "'+c.nome+'"? Esta ação não pode ser desfeita.')) return;
+  data.cursos = data.cursos.filter(function(x){return x.id!==c.id;});
+  data.pessoas.forEach(function(p){ p.cursos = (p.cursos||[]).filter(function(id){return id!==c.id;}); });
+  saveData(); showToast('Curso apagado.'); goTo('cursos');
 }
 let cursoTabAtiva = 'fez';
 document.querySelectorAll('#screen-curso-detalhe .tab-btn').forEach(function(t){
@@ -1255,21 +1432,25 @@ function renderCarnes(){
   }).join('');
 }
 function formCarne(){
-  const pessoaOptions = data.pessoas.map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('');
+  const pessoaOptions = data.pessoas.map(function(p){return '<label style="display:flex; align-items:center; gap:8px; font-weight:500; font-size:13.5px; color:var(--ink-2); padding:5px 0;"><input type="checkbox" class="ca_pessoa_chk" value="'+p.id+'" style="width:auto;"> '+p.nome+'</label>';}).join('');
   openSheet('Novo carnê',
     '<div class="form-field"><label>Título / campanha</label><input id="ca_titulo" placeholder="Campanha de construção"></div>'+
-    '<div class="form-field"><label>Pessoa</label><select id="ca_pessoa"><option value="">Selecione...</option>'+pessoaOptions+'</select></div>'+
+    '<div class="form-field"><label>Pessoas</label><div style="display:flex; flex-direction:column; max-height:180px; overflow-y:auto;">'+(pessoaOptions||'<div style="font-size:12.5px; color:var(--ink-3);">Nenhuma pessoa cadastrada.</div>')+'</div><div style="font-size:11.5px; color:var(--ink-2); margin-top:4px;">Selecione uma ou mais pessoas — um carnê individual será criado para cada uma.</div></div>'+
     '<div class="form-row2"><div class="form-field"><label>Número de parcelas</label><input type="number" id="ca_parcelas" value="12"></div>'+
     '<div class="form-field"><label>Valor da parcela (R$)</label><input type="number" step="0.01" id="ca_valor"></div></div>',
   function(){
     const titulo = document.getElementById('ca_titulo').value.trim();
     const n = Number(document.getElementById('ca_parcelas').value||0);
     const valor = parseFloat(document.getElementById('ca_valor').value);
+    const pessoasSelecionadas = Array.prototype.slice.call(document.querySelectorAll('.ca_pessoa_chk:checked')).map(function(el){return el.value;});
     if(!titulo || !n || isNaN(valor)){ showToast('Preencha todos os campos.'); return; }
-    const parcelas = [];
-    for(let i=0;i<n;i++){ parcelas.push({numero:i+1, paga:false}); }
-    data.carnes.push({id:uid(), titulo:titulo, pessoa:document.getElementById('ca_pessoa').value, valorParcela:valor, parcelas:parcelas});
-    saveData(); closeSheet(); showToast('Carnê criado.'); renderCarnes();
+    if(pessoasSelecionadas.length===0){ showToast('Selecione ao menos uma pessoa.'); return; }
+    pessoasSelecionadas.forEach(function(pessoaId){
+      const parcelas = [];
+      for(let i=0;i<n;i++){ parcelas.push({numero:i+1, paga:false}); }
+      data.carnes.push({id:uid(), titulo:titulo, pessoa:pessoaId, valorParcela:valor, parcelas:parcelas});
+    });
+    saveData(); closeSheet(); showToast(pessoasSelecionadas.length+' carnê(s) criado(s).'); renderCarnes();
   });
 }
 
