@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>codemgf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --primary:#2563EB;
+    --primary-dark:#1D4ED8;
+    --primary-soft:#EFF4FF;
+    --growth:#22C55E;
+    --growth-soft:#EAFBF1;
+    --bg:#F8FAFC;
+    --surface:#FFFFFF;
+    --ink:#0F172A;
+    --ink-2:#64748B;
+    --warn:#F59E0B;
+    --warn-soft:#FEF6E7;
+    --danger:#EF4444;
+    --danger-soft:#FDEEEE;
+    --line:#E2E8F0;
+    --radius-lg:18px;
+    --radius-md:14px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,23,42,.04), 0 2px 8px rgba(15,23,42,.04);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Plus Jakarta Sans','Inter',-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:78px;
+  }
+  h1,h2,h3{margin:0; font-weight:700;}
+  p{margin:0;}
+  button{font-family:inherit;}
+
+  .app{max-width:480px; margin:0 auto; min-height:100vh; background:var(--bg); position:relative;}
+  .main-col{width:100%;}
+
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    background:var(--bg);
+    padding:18px 18px 12px 18px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .topbar .greet{font-size:13px; color:var(--ink-2); font-weight:500;}
+  .topbar h1{font-size:20px; letter-spacing:-0.01em;}
+  .avatar{
+    width:38px; height:38px; border-radius:50%;
+    background:var(--primary-soft); color:var(--primary);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:14px;
+    border:1.5px solid var(--line);
+  }
+
+  .screen{display:none; padding:4px 18px 24px 18px; animation:fade .18s ease;}
+  .screen.active{display:block;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+  .section-title{
+    font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--ink-2); margin:22px 0 10px 2px;
+  }
+  .section-title:first-child{margin-top:6px;}
+
+  .card{
+    background:var(--surface);
+    border-radius:var(--radius-lg);
+    border:1px solid var(--line);
+    box-shadow:var(--shadow);
+  }
+  .kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .kpi{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md);
+    padding:14px 16px; box-shadow:var(--shadow);
+  }
+  .kpi .label{font-size:12px; color:var(--ink-2); font-weight:600;}
+  .kpi .value{font-size:22px; font-weight:800; margin-top:4px; letter-spacing:-0.02em;}
+  .kpi .value.growth{color:var(--growth);}
+  .kpi .value.primary{color:var(--primary);}
+  .kpi .sub{font-size:11px; color:var(--ink-2); margin-top:2px;}
+
+  .balance-card{
+    background:linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border-radius:var(--radius-lg);
+    padding:20px 20px 18px 20px;
+    color:#fff;
+    box-shadow:0 8px 20px rgba(37,99,235,.25);
+  }
+  .balance-card .label{font-size:12px; opacity:.85; font-weight:600;}
+  .balance-card .value{font-size:30px; font-weight:800; margin-top:6px; letter-spacing:-0.02em;}
+  .balance-row{display:flex; gap:18px; margin-top:14px;}
+  .balance-row .item{flex:1;}
+  .balance-row .item .t{font-size:11px; opacity:.8;}
+  .balance-row .item .v{font-size:15px; font-weight:700; margin-top:2px;}
+
+  .list-card{padding:6px;}
+  .list-row{
+    display:flex; align-items:center; gap:12px;
+    padding:12px 10px;
+    border-radius:var(--radius-sm);
+  }
+  .list-row:active{background:var(--bg);}
+  .list-row + .list-row{border-top:1px solid var(--line);}
+  .list-icon{
+    width:40px; height:40px; border-radius:12px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; font-weight:700;
+  }
+  .list-icon.blue{background:var(--primary-soft); color:var(--primary);}
+  .list-icon.green{background:var(--growth-soft); color:var(--growth);}
+  .list-icon.warn{background:var(--warn-soft); color:var(--warn);}
+  .list-icon.red{background:var(--danger-soft); color:var(--danger);}
+  .list-main{flex:1; min-width:0;}
+  .list-title{font-size:14px; font-weight:600;}
+  .list-sub{font-size:12px; color:var(--ink-2); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .list-value{font-size:14px; font-weight:700; flex-shrink:0;}
+  .list-value.pos{color:var(--growth);}
+  .list-value.neg{color:var(--danger);}
+  .chip{font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; flex-shrink:0;}
+  .chip.blue{background:var(--primary-soft); color:var(--primary);}
+  .chip.green{background:var(--growth-soft); color:var(--growth);}
+  .chip.warn{background:var(--warn-soft); color:var(--warn);}
+  .chip.gray{background:var(--line); color:var(--ink-2);}
+
+  .empty-state{text-align:center; padding:40px 20px; color:var(--ink-2);}
+  .empty-state .icon{font-size:30px; margin-bottom:8px; opacity:.5;}
+  .empty-state .txt{font-size:13px;}
+
+  .searchbar{
+    display:flex; align-items:center; gap:8px;
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md);
+    padding:10px 14px; margin-bottom:14px;
+  }
+  .searchbar input{border:none; outline:none; background:none; flex:1; font-size:14px; color:var(--ink); font-family:inherit;}
+  .searchbar .ic{color:var(--ink-2); font-size:14px;}
+
+  .filter-row{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px; scrollbar-width:none;}
+  .filter-row::-webkit-scrollbar{display:none;}
+  .filter-chip{
+    flex-shrink:0; font-size:12.5px; font-weight:600; padding:8px 14px;
+    border-radius:20px; border:1px solid var(--line); background:var(--surface); color:var(--ink-2);
+    white-space:nowrap; cursor:pointer;
+  }
+  .filter-chip.active{background:var(--primary); border-color:var(--primary); color:#fff;}
+
+  .fab{
+    position:fixed; right:calc(50% - 240px + 18px); bottom:92px; z-index:30;
+    width:56px; height:56px; border-radius:50%;
+    background:var(--primary); color:#fff; border:none;
+    font-size:26px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 24px rgba(37,99,235,.4);
+  }
+  @media (max-width:520px){ .fab{right:18px;} }
+
+  /* ===== DESKTOP / NOTEBOOK (mantém a mesma vibe bank core, só reorganiza o layout) ===== */
+  @media (min-width:900px){
+    body{padding-bottom:0;}
+    .app{max-width:1180px; display:flex; align-items:flex-start; min-height:100vh; background:transparent;}
+
+    .bottomnav{
+      position:fixed; top:0; left:0; bottom:0; right:auto; z-index:40;
+      width:232px; height:100vh;
+      border-top:none; border-right:1px solid var(--line);
+      display:flex; justify-content:flex-start; padding-bottom:0;
+    }
+    .bottomnav-inner{
+      max-width:none; width:100%; flex-direction:column; justify-content:flex-start;
+      align-items:stretch; gap:2px; padding:26px 14px;
+    }
+    .bottomnav-inner::before{
+      content:"eNuvemGF"; display:block; font-size:17px; font-weight:800;
+      color:var(--ink); letter-spacing:-.01em; padding:0 10px 22px 10px;
+    }
+    .nav-btn{
+      flex-direction:row; justify-content:flex-start; align-items:center; gap:12px;
+      font-size:14px; padding:11px 12px; border-radius:var(--radius-sm); text-align:left;
+    }
+    .nav-btn .ic{font-size:18px;}
+    .nav-btn.active{background:var(--primary-soft); color:var(--primary);}
+
+    .main-col{margin-left:232px; flex:1; min-width:0; padding:0 32px;}
+    .topbar{max-width:900px; margin:0 auto; padding-top:26px;}
+    .screen{max-width:900px; margin:0 auto; padding-left:0; padding-right:0;}
+    .kpi-grid{grid-template-columns:repeat(4,1fr);}
+
+    .fab{
+      position:fixed; right:40px; bottom:40px; left:auto;
+      width:60px; height:60px; font-size:28px;
+    }
+  }
+  .btn{
+    background:var(--primary); color:#fff; border:none; border-radius:var(--radius-sm);
+    padding:13px 18px; font-size:14.5px; font-weight:700; width:100%; cursor:pointer;
+  }
+  .btn.secondary{background:var(--surface); color:var(--ink); border:1px solid var(--line);}
+  .btn-row{display:flex; gap:10px;}
+
+  .bottomnav{
+    position:fixed; bottom:0; left:0; right:0; z-index:40;
+    background:var(--surface); border-top:1px solid var(--line);
+    display:flex; justify-content:center;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .bottomnav-inner{max-width:480px; width:100%; display:flex; justify-content:space-around; padding:8px 4px 10px 4px;}
+  .nav-btn{
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:none; border:none; color:var(--ink-2);
+    font-size:10.5px; font-weight:600; padding:4px 8px; border-radius:10px;
+  }
+  .nav-btn .ic{font-size:19px; line-height:1;}
+  .nav-btn.active{color:var(--primary);}
+
+  .profile-head{display:flex; flex-direction:column; align-items:center; text-align:center; padding:20px 0 6px 0;}
+  .profile-photo{
+    width:76px; height:76px; border-radius:50%;
+    background:var(--primary-soft); color:var(--primary);
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:800; margin-bottom:10px;
+    border:2px solid var(--surface); box-shadow:var(--shadow);
+  }
+  .profile-name{font-size:18px; font-weight:800;}
+  .profile-meta{font-size:12.5px; color:var(--ink-2); margin-top:2px;}
+  .tab-row{display:flex; gap:6px; margin:16px 0 14px 0; overflow-x:auto;}
+  .tab-btn{
+    flex-shrink:0; font-size:12.5px; font-weight:700; padding:8px 14px; border-radius:10px;
+    background:var(--bg); color:var(--ink-2); border:1px solid var(--line);
+  }
+  .tab-btn.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+  .field-list .list-row{padding:11px 4px;}
+  .field-label{font-size:11.5px; color:var(--ink-2); font-weight:600;}
+  .field-val{font-size:14px; font-weight:600; margin-top:1px;}
+
+  .subheader{display:flex; align-items:center; gap:10px; padding:16px 18px 4px 18px;}
+  .back-btn{
+    width:34px; height:34px; border-radius:10px; border:1px solid var(--line); background:var(--surface);
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+  }
+  .subheader h2{font-size:17px;}
+
+  .sheet-overlay{
+    position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:100;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .sheet-overlay.open{display:flex;}
+  .sheet{
+    background:var(--surface); width:100%; max-width:480px; max-height:88vh; overflow-y:auto;
+    border-radius:22px 22px 0 0; padding:8px 20px 24px 20px;
+    animation:slideup .22s ease;
+  }
+  @keyframes slideup{from{transform:translateY(24px); opacity:.6;} to{transform:none; opacity:1;}}
+  .sheet-handle{width:38px; height:4px; background:var(--line); border-radius:4px; margin:6px auto 14px auto;}
+  .sheet-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
+  .sheet-head h3{font-size:17px;}
+  .sheet-close{background:var(--bg); border:none; width:30px; height:30px; border-radius:50%; font-size:14px; color:var(--ink-2);}
+  .form-field{margin-bottom:14px;}
+  .form-field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-2); margin-bottom:6px;}
+  .form-field input, .form-field select, .form-field textarea{
+    width:100%; border:1.5px solid var(--line); border-radius:var(--radius-sm);
+    padding:12px 13px; font-size:14.5px; font-family:inherit; color:var(--ink); background:var(--bg);
+    outline:none;
+  }
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus{border-color:var(--primary); background:var(--surface);}
+  .form-field textarea{resize:vertical; min-height:64px;}
+  .form-row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+
+  .toast{
+    position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(10px);
+    background:var(--ink); color:#fff; font-size:13px; font-weight:600;
+    padding:11px 18px; border-radius:30px; z-index:200; opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s; white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  .grid-more{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .more-tile{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-md);
+    padding:16px; box-shadow:var(--shadow); text-align:left;
+  }
+  .more-tile .ic{
+    width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    font-size:16px; margin-bottom:10px;
+  }
+  .more-tile .t{font-size:13.5px; font-weight:700;}
+  .more-tile .s{font-size:11.5px; color:var(--ink-2); margin-top:2px;}
+
+  /* ===== LOGIN / LOADING ===== */
+  .auth-screen{
+    position:fixed; inset:0; z-index:500; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .auth-box{width:100%; max-width:360px;}
+  .auth-logo{font-size:20px; font-weight:800; text-align:center; margin-bottom:4px;}
+  .auth-sub{font-size:13px; color:var(--ink-2); text-align:center; margin-bottom:22px;}
+  .auth-error{font-size:12.5px; color:var(--danger); margin-top:10px; text-align:center; display:none;}
+  .auth-error.show{display:block;}
+  .auth-switch{font-size:12.5px; color:var(--ink-2); text-align:center; margin-top:16px;}
+  .auth-switch a{color:var(--primary); font-weight:700; text-decoration:none; cursor:pointer;}
+  .loading-screen{
+    position:fixed; inset:0; z-index:500; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px;
+    color:var(--ink-2); font-size:13px; font-weight:600;
+  }
+  .spinner{
+    width:26px; height:26px; border-radius:50%;
+    border:3px solid var(--line); border-top-color:var(--primary);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div>Carregando eNuvemGF...</div>
+</div>
+
+<div class="auth-screen" id="authScreen" style="display:none;">
+  <div class="auth-box">
+    <div class="auth-logo">eNuvemGF</div>
+    <div class="auth-sub" id="authSub">Entre com sua conta para acessar</div>
+    <div class="card" style="padding:20px;">
+      <div class="form-field"><label>E-mail</label><input type="email" id="au_email" autocomplete="username"></div>
+      <div class="form-field"><label>Senha</label><input type="password" id="au_senha" autocomplete="current-password"></div>
+      <button class="btn" id="authBtn" onclick="submitAuth()">Entrar</button>
+      <div class="auth-error" id="authError"></div>
+    </div>
+    <div class="auth-switch" id="authSwitch">Primeiro acesso? <a onclick="toggleAuthMode()">Criar conta</a></div>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none;">
+<div class="main-col">
+
+  <div class="topbar">
+    <div>
+      <div class="greet" id="topGreet">Bem-vindo</div>
+      <h1 id="topTitle">Início</h1>
+    </div>
+    <div class="avatar" onclick="if(confirm('Sair da conta?')) logout();" style="cursor:pointer;" title="Sair">MC</div>
+  </div>
+
+  <section class="screen active" id="screen-inicio">
+    <div class="balance-card">
+      <div class="label">Saldo atual</div>
+      <div class="value" id="hSaldo">R$ 0,00</div>
+      <div class="balance-row">
+        <div class="item"><div class="t">Entradas do mês</div><div class="v" id="hEntradas">R$ 0,00</div></div>
+        <div class="item"><div class="t">Saídas do mês</div><div class="v" id="hSaidas">R$ 0,00</div></div>
+      </div>
+    </div>
+
+    <div class="section-title">Visão geral</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">Membros</div><div class="value primary" id="hMembros">0</div><div class="sub" id="hMembrosSub">0 ativos</div></div>
+      <div class="kpi"><div class="label">Células</div><div class="value primary" id="hCelulas">0</div><div class="sub">ativas na igreja</div></div>
+      <div class="kpi"><div class="label">Sem célula</div><div class="value" id="hSemCelula" style="color:var(--warn);">0</div><div class="sub">precisam de acompanhamento</div></div>
+      <div class="kpi"><div class="label">Discípulos</div><div class="value growth" id="hDiscipulos">0</div><div class="sub" id="hLideresSub">0 líderes</div></div>
+    </div>
+
+    <div class="section-title">Aniversariantes do mês</div>
+    <div class="card list-card" id="hAniversariantes"></div>
+
+    <div class="section-title">Alertas</div>
+    <div class="card list-card" id="hAlertas"></div>
+  </section>
+
+  <section class="screen" id="screen-pessoas">
+    <div class="searchbar"><span class="ic">⌕</span><input id="buscaPessoas" placeholder="Buscar por nome..." oninput="renderPessoas()"></div>
+    <div class="filter-row" id="filtroPessoas">
+      <div class="filter-chip active" data-cat="todos">Todos</div>
+      <div class="filter-chip" data-cat="Membro">Membros</div>
+      <div class="filter-chip" data-cat="Líder de Célula">Líderes</div>
+      <div class="filter-chip" data-cat="Congregado">Congregados</div>
+      <div class="filter-chip" data-cat="Visitante">Visitantes</div>
+    </div>
+    <div class="card list-card" id="listaPessoas"></div>
+  </section>
+
+  <section class="screen" id="screen-perfil">
+    <div class="subheader"><button class="back-btn" onclick="goTo('pessoas')">←</button><h2>Perfil</h2></div>
+    <div class="profile-head">
+      <div class="profile-photo" id="pfInitials">--</div>
+      <div class="profile-name" id="pfNome">—</div>
+      <div class="profile-meta" id="pfMeta">—</div>
+    </div>
+    <div class="tab-row" id="pfTabs">
+      <div class="tab-btn active" data-tab="dados">Dados</div>
+      <div class="tab-btn" data-tab="contrib">Contribuições</div>
+      <div class="tab-btn" data-tab="cursos">Cursos</div>
+      <div class="tab-btn" data-tab="anot">Anotações</div>
+    </div>
+    <div id="pfContent"></div>
+  </section>
+
+  <section class="screen" id="screen-celulas">
+    <div class="searchbar"><span class="ic">⌕</span><input id="buscaCelulas" placeholder="Buscar célula..." oninput="renderCelulas()"></div>
+    <div class="section-title" style="margin-top:2px;">Todas as células</div>
+    <div class="card list-card" id="listaCelulas"></div>
+  </section>
+
+  <section class="screen" id="screen-celula-detalhe">
+    <div class="subheader"><button class="back-btn" onclick="goTo('celulas')">←</button><h2 id="celNome">Célula</h2></div>
+    <div class="tab-row">
+      <div class="tab-btn active" data-tab="info">Informações</div>
+      <div class="tab-btn" data-tab="membros">Membros</div>
+      <div class="tab-btn" data-tab="relatorios">Relatórios</div>
+    </div>
+    <div id="celContent"></div>
+  </section>
+
+  <section class="screen" id="screen-financeiro">
+    <div class="balance-card">
+      <div class="label">Saldo atual</div>
+      <div class="value" id="fSaldo">R$ 0,00</div>
+      <div class="balance-row">
+        <div class="item"><div class="t">Receitas (mês)</div><div class="v" id="fReceitas">R$ 0,00</div></div>
+        <div class="item"><div class="t">Despesas (mês)</div><div class="v" id="fDespesas">R$ 0,00</div></div>
+      </div>
+    </div>
+    <div class="filter-row" id="filtroFinanceiro" style="margin-top:16px;">
+      <div class="filter-chip active" data-periodo="mes">Mensal</div>
+      <div class="filter-chip" data-periodo="semana">Semanal</div>
+      <div class="filter-chip" data-periodo="dia">Diário</div>
+      <div class="filter-chip" data-periodo="ano">Anual</div>
+    </div>
+    <div class="section-title">Categorias</div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">Dízimos</div><div class="value growth" id="fDizimos">R$ 0,00</div></div>
+      <div class="kpi"><div class="label">Ofertas</div><div class="value growth" id="fOfertas">R$ 0,00</div></div>
+      <div class="kpi"><div class="label">Contas a pagar</div><div class="value" id="fAPagar" style="color:var(--danger);">R$ 0,00</div></div>
+      <div class="kpi"><div class="label">Contas a receber</div><div class="value" id="fAReceber" style="color:var(--warn);">R$ 0,00</div></div>
+    </div>
+    <div class="section-title">Movimentações recentes</div>
+    <div class="card list-card" id="listaFinanceiro"></div>
+  </section>
+
+  <section class="screen" id="screen-mais">
+    <div class="section-title" style="margin-top:2px;">Módulos</div>
+    <div class="grid-more">
+      <button class="more-tile" onclick="goTo('cursos')"><div class="ic" style="background:var(--primary-soft); color:var(--primary);">▤</div><div class="t">Ensino</div><div class="s">Cursos e discipulado</div></button>
+      <button class="more-tile" onclick="goTo('rede')"><div class="ic" style="background:var(--growth-soft); color:var(--growth);">◈</div><div class="t">Rede de discípulos</div><div class="s">Quem discipula quem</div></button>
+      <button class="more-tile" onclick="goTo('carnes')"><div class="ic" style="background:var(--warn-soft); color:var(--warn);">▥</div><div class="t">Carnês</div><div class="s">Parcelamentos</div></button>
+      <button class="more-tile" onclick="goTo('relatorios')"><div class="ic" style="background:var(--danger-soft); color:var(--danger);">▦</div><div class="t">Relatórios</div><div class="s">Gráficos gerais</div></button>
+    </div>
+
+    <div class="section-title">Cadastro público (online)</div>
+    <div class="card" style="padding:16px;">
+      <p class="field-label">Link do formulário online</p>
+      <p class="field-val" style="margin-top:6px; color:var(--primary); word-break:break-all;">enuvemgf.com.br/cadastro</p>
+      <p style="font-size:12px; color:var(--ink-2); margin-top:8px;">Envie esse link para visitantes e novos convertidos preencherem sozinhos, pelo celular. Cada envio cai em <b id="pendCount">0</b> pendência(s) até um líder aprovar e definir a categoria e a célula da pessoa.</p>
+      <button class="btn secondary" style="margin-top:12px;" onclick="verPendentes()">Ver cadastros pendentes</button>
+    </div>
+
+    <div class="section-title">Conta</div>
+    <div class="card list-card">
+      <div class="list-row"><div class="list-icon blue">⚙</div><div class="list-main"><div class="list-title">Configurações</div></div></div>
+      <div class="list-row"><div class="list-icon blue">◐</div><div class="list-main"><div class="list-title">Categorias personalizadas</div></div></div>
+    </div>
+  </section>
+
+  <section class="screen" id="screen-cursos">
+    <div class="subheader"><button class="back-btn" onclick="goTo('mais')">←</button><h2>Ensino e discipulado</h2></div>
+    <div class="section-title" style="margin-top:2px;">Cursos cadastrados</div>
+    <div class="card list-card" id="listaCursos"></div>
+  </section>
+
+  <section class="screen" id="screen-curso-detalhe">
+    <div class="subheader"><button class="back-btn" onclick="goTo('cursos')">←</button><h2 id="cursoNome">Curso</h2></div>
+    <div class="tab-row">
+      <div class="tab-btn active" data-tab="fez">Já fizeram</div>
+      <div class="tab-btn" data-tab="naofez">Não fizeram</div>
+    </div>
+    <div id="cursoContent"></div>
+  </section>
+
+  <section class="screen" id="screen-rede">
+    <div class="subheader"><button class="back-btn" onclick="goTo('mais')">←</button><h2>Rede de discípulos</h2></div>
+    <div class="section-title" style="margin-top:2px;">Estrutura de discipulado</div>
+    <div class="card" style="padding:10px 14px;" id="arvoreRede"></div>
+  </section>
+
+  <section class="screen" id="screen-carnes">
+    <div class="subheader"><button class="back-btn" onclick="goTo('mais')">←</button><h2>Carnês</h2></div>
+    <div class="section-title" style="margin-top:2px;">Parcelamentos ativos</div>
+    <div class="card list-card" id="listaCarnes"></div>
+  </section>
+
+  <section class="screen" id="screen-relatorios">
+    <div class="subheader"><button class="back-btn" onclick="goTo('mais')">←</button><h2>Relatórios</h2></div>
+    <div class="section-title" style="margin-top:2px;">Situação atual da igreja</div>
+    <div class="card" style="padding:18px;">
+      <div class="field-label">Receitas x Despesas (mês atual)</div>
+      <div style="display:flex; align-items:flex-end; gap:10px; height:120px; margin-top:16px;">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <div id="barReceita" style="width:60%; background:var(--growth); border-radius:6px 6px 0 0; min-height:4px;"></div>
+          <span style="font-size:11px; color:var(--ink-2); font-weight:600;">Receitas</span>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <div id="barDespesa" style="width:60%; background:var(--danger); border-radius:6px 6px 0 0; min-height:4px;"></div>
+          <span style="font-size:11px; color:var(--ink-2); font-weight:600;">Despesas</span>
+        </div>
+      </div>
+    </div>
+    <div class="section-title">Crescimento de membros</div>
+    <div class="card" style="padding:16px;">
+      <div class="field-label">Total de membros cadastrados</div>
+      <div class="value primary" style="font-size:26px; margin-top:4px;" id="relTotalMembros">0</div>
+    </div>
+  </section>
+
+  </div><!-- /main-col -->
+
+  <div class="bottomnav">
+    <div class="bottomnav-inner">
+      <button class="nav-btn active" data-nav="inicio" onclick="goTo('inicio')"><span class="ic">⌂</span>Início</button>
+      <button class="nav-btn" data-nav="pessoas" onclick="goTo('pessoas')"><span class="ic">◉</span>Pessoas</button>
+      <button class="nav-btn" data-nav="celulas" onclick="goTo('celulas')"><span class="ic">▣</span>Células</button>
+      <button class="nav-btn" data-nav="financeiro" onclick="goTo('financeiro')"><span class="ic">$</span>Financeiro</button>
+      <button class="nav-btn" data-nav="mais" onclick="goTo('mais')"><span class="ic">⋯</span>Mais</button>
+    </div>
+  </div>
+
+  <button class="fab" id="fabBtn">+</button>
+</div>
+
+<div class="sheet-overlay" id="sheetOverlay">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head"><h3 id="sheetTitle">Novo</h3><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div id="sheetBody"></div>
+    <div class="btn-row" style="margin-top:6px;">
+      <button class="btn secondary" onclick="closeSheet()">Cancelar</button>
+      <button class="btn" id="sheetSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* ======================================================
+   CONFIGURAÇÃO DO SUPABASE
+   Troque os dois valores abaixo pelos dados do SEU projeto
+   (Supabase > Project Settings > API).
+====================================================== */
+const SUPABASE_URL = 'https://qwqfmbojxcorupydfgsh.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWZtYm9qeGNvcnVweWRmZ3NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NTA4OTgsImV4cCI6MjEwMjMyNjg5OH0.M21WgJZcjzfyhw81Z1Jwh-UyloUha1z8urtPN6qnZPk';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const ROW_ID = 'main'; // uma única igreja = uma única linha de dados compartilhada
+
+function seedData(){
+  return {
+    pessoas: [], celulas: [], cursos: [
+      {id:uid(), nome:'Discipulado da Vida', categoria:'Discipulado', carga:'12h'},
+      {id:uid(), nome:'Escola de Líderes', categoria:'Liderança', carga:'20h'},
+      {id:uid(), nome:'Batismo', categoria:'Fundamentos', carga:'4h'},
+    ],
+    financeiro: [], relatoriosCelula: [], carnes: [], pendentes: [],
+  };
+}
+
+async function loadData(){
+  const { data: row, error } = await sb.from('church_data').select('data').eq('id', ROW_ID).maybeSingle();
+  if(error){ console.error(error); showToast('Erro ao carregar dados da nuvem.'); return seedData(); }
+  if(!row){
+    const inicial = seedData();
+    await sb.from('church_data').insert({ id: ROW_ID, data: inicial });
+    return inicial;
+  }
+  return row.data;
+}
+
+let saveTimeout = null;
+function saveData(){
+  if(saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async function(){
+    const { error } = await sb.from('church_data').update({ data: data, updated_at: new Date().toISOString() }).eq('id', ROW_ID);
+    if(error){ console.error(error); showToast('Erro ao salvar na nuvem.'); }
+  }, 300);
+}
+
+let data = seedData();
+
+/* ===== AUTENTICAÇÃO ===== */
+let authMode = 'login';
+function toggleAuthMode(){
+  authMode = authMode==='login' ? 'signup' : 'login';
+  document.getElementById('authBtn').textContent = authMode==='login' ? 'Entrar' : 'Criar conta';
+  document.getElementById('authSub').textContent = authMode==='login' ? 'Entre com sua conta para acessar' : 'Crie sua conta de acesso';
+  document.getElementById('authSwitch').innerHTML = authMode==='login'
+    ? 'Primeiro acesso? <a onclick="toggleAuthMode()">Criar conta</a>'
+    : 'Já tem conta? <a onclick="toggleAuthMode()">Entrar</a>';
+  document.getElementById('authError').classList.remove('show');
+}
+async function submitAuth(){
+  const email = document.getElementById('au_email').value.trim();
+  const senha = document.getElementById('au_senha').value;
+  const errEl = document.getElementById('authError');
+  errEl.classList.remove('show');
+  if(!email || !senha){ errEl.textContent='Preencha e-mail e senha.'; errEl.classList.add('show'); return; }
+  const btn = document.getElementById('authBtn');
+  btn.disabled = true; btn.textContent = 'Aguarde...';
+  const fn = authMode==='login' ? sb.auth.signInWithPassword({email, password:senha}) : sb.auth.signUp({email, password:senha});
+  const { error } = await fn;
+  btn.disabled = false;
+  if(error){
+    btn.textContent = authMode==='login' ? 'Entrar' : 'Criar conta';
+    errEl.textContent = error.message; errEl.classList.add('show'); return;
+  }
+  if(authMode==='signup'){
+    btn.textContent = 'Criar conta';
+    errEl.style.color = 'var(--growth)';
+    errEl.textContent = 'Conta criada! Verifique seu e-mail se for solicitado, depois faça login.';
+    errEl.classList.add('show');
+    toggleAuthMode();
+    return;
+  }
+  await bootApp();
+}
+async function logout(){
+  await sb.auth.signOut();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+}
+
+async function bootApp(){
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('loadingScreen').style.display = 'flex';
+  data = await loadData();
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('app').style.display = '';
+  renderInicio();
+}
+
+(async function init(){
+  const { data: sessionData } = await sb.auth.getSession();
+  document.getElementById('loadingScreen').style.display = 'none';
+  if(sessionData && sessionData.session){
+    await bootApp();
+  } else {
+    document.getElementById('authScreen').style.display = 'flex';
+  }
+})();
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function fmtMoney(n){ return 'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDate(d){ if(!d) return '—'; const parts=d.split('-'); return parts[2]+'/'+parts[1]+'/'+parts[0]; }
+function initials(nome){ return (nome||'--').trim().split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
+
+const titles = {
+  inicio:'Início', pessoas:'Pessoas', celulas:'Células', financeiro:'Financeiro', mais:'Mais',
+  perfil:'Perfil', 'celula-detalhe':'Célula', cursos:'Ensino', 'curso-detalhe':'Curso', rede:'Rede de discípulos',
+  carnes:'Carnês', relatorios:'Relatórios'
+};
+let state = { screen:'inicio', pessoaAtual:null, celulaAtual:null, cursoAtual:null };
+
+function goTo(screen, opts){
+  opts = opts||{};
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+screen).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const navMap = {inicio:'inicio', pessoas:'pessoas', perfil:'pessoas', celulas:'celulas', 'celula-detalhe':'celulas', financeiro:'financeiro', mais:'mais', cursos:'mais','curso-detalhe':'mais', rede:'mais', carnes:'mais', relatorios:'mais'};
+  const navBtn = document.querySelector('.nav-btn[data-nav="'+navMap[screen]+'"]');
+  if(navBtn) navBtn.classList.add('active');
+  document.getElementById('topTitle').textContent = titles[screen] || 'codemgf';
+  document.getElementById('fabBtn').style.display = ['inicio','perfil','celula-detalhe','curso-detalhe','rede'].includes(screen) ? 'none':'flex';
+  state.screen = screen;
+  if(opts.id){
+    if(screen==='perfil') state.pessoaAtual = opts.id;
+    if(screen==='celula-detalhe') state.celulaAtual = opts.id;
+    if(screen==='curso-detalhe') state.cursoAtual = opts.id;
+  }
+  renderScreen(screen);
+  window.scrollTo(0,0);
+}
+
+function renderScreen(screen){
+  if(screen==='inicio') renderInicio();
+  if(screen==='pessoas') renderPessoas();
+  if(screen==='perfil') renderPerfil();
+  if(screen==='celulas') renderCelulas();
+  if(screen==='celula-detalhe') renderCelulaDetalhe();
+  if(screen==='financeiro') renderFinanceiro();
+  if(screen==='cursos') renderCursos();
+  if(screen==='curso-detalhe') renderCursoDetalhe();
+  if(screen==='rede') renderRede();
+  if(screen==='carnes') renderCarnes();
+  if(screen==='relatorios') renderRelatorios();
+  if(screen==='mais') document.getElementById('pendCount').textContent = data.pendentes.length;
+}
+
+const sheetOverlay = document.getElementById('sheetOverlay');
+function openSheet(title, html, onSave){
+  document.getElementById('sheetTitle').textContent = title;
+  document.getElementById('sheetBody').innerHTML = html;
+  sheetOverlay.classList.add('open');
+  document.getElementById('sheetSave').onclick = onSave;
+}
+function closeSheet(){ sheetOverlay.classList.remove('open'); }
+sheetOverlay.addEventListener('click', function(e){ if(e.target===sheetOverlay) closeSheet(); });
+
+document.getElementById('fabBtn').addEventListener('click', function(){
+  if(state.screen==='pessoas') return formPessoa();
+  if(state.screen==='celulas') return formCelula();
+  if(state.screen==='financeiro') return formFinanceiro();
+  if(state.screen==='cursos') return formCurso();
+  if(state.screen==='carnes') return formCarne();
+});
+
+function renderInicio(){
+  const membrosAtivos = data.pessoas.filter(function(p){return p.status==='Ativo';});
+  const lideres = data.pessoas.filter(function(p){return p.categoria==='Líder de Célula' || p.categoria==='Coordenador';});
+  const semCelula = membrosAtivos.filter(function(p){return !p.celula;});
+  const discipulos = data.pessoas.filter(function(p){return p.discipulador;});
+
+  const hoje = new Date(); const mesAtual = hoje.toISOString().slice(0,7);
+  const receitasMes = data.financeiro.filter(function(f){return f.tipo==='receita' && (f.data||'').indexOf(mesAtual)===0;}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+  const despesasMes = data.financeiro.filter(function(f){return f.tipo==='despesa' && (f.data||'').indexOf(mesAtual)===0;}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+  const saldoTotal = data.financeiro.filter(function(f){return f.tipo==='receita';}).reduce(function(s,f){return s+Number(f.valor||0);},0) - data.financeiro.filter(function(f){return f.tipo==='despesa';}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+
+  document.getElementById('hSaldo').textContent = fmtMoney(saldoTotal);
+  document.getElementById('hEntradas').textContent = fmtMoney(receitasMes);
+  document.getElementById('hSaidas').textContent = fmtMoney(despesasMes);
+  document.getElementById('hMembros').textContent = data.pessoas.length;
+  document.getElementById('hMembrosSub').textContent = membrosAtivos.length+' ativos';
+  document.getElementById('hCelulas').textContent = data.celulas.length;
+  document.getElementById('hSemCelula').textContent = semCelula.length;
+  document.getElementById('hDiscipulos').textContent = discipulos.length;
+  document.getElementById('hLideresSub').textContent = lideres.length+' líderes';
+
+  const mesNum = hoje.getMonth()+1;
+  const aniversariantes = data.pessoas.filter(function(p){return p.nascimento && Number(p.nascimento.split('-')[1])===mesNum;});
+  const anivEl = document.getElementById('hAniversariantes');
+  anivEl.innerHTML = aniversariantes.length ? aniversariantes.map(function(p){return '<div class="list-row"><div class="list-icon blue">'+initials(p.nome)+'</div><div class="list-main"><div class="list-title">'+p.nome+'</div><div class="list-sub">'+fmtDate(p.nascimento).slice(0,5)+'</div></div><span class="chip blue">Aniversário</span></div>';}).join('') : '<div class="empty-state"><div class="icon">🎂</div><div class="txt">Nenhum aniversariante este mês</div></div>';
+
+  const alertas = [];
+  if(semCelula.length>0) alertas.push({t:semCelula.length+' pessoa(s) sem célula', s:'precisam de acompanhamento', ic:'warn', icon:'!'});
+  if(data.pendentes.length>0) alertas.push({t:data.pendentes.length+' cadastro(s) pendente(s)', s:'aguardando aprovação', ic:'blue', icon:'◉'});
+  const aPagar = data.financeiro.filter(function(f){return f.tipo==='despesa' && f.status==='pendente';});
+  if(aPagar.length>0) alertas.push({t:aPagar.length+' conta(s) a pagar', s:'verifique o financeiro', ic:'red', icon:'$'});
+  const alEl = document.getElementById('hAlertas');
+  alEl.innerHTML = alertas.length ? alertas.map(function(a){return '<div class="list-row"><div class="list-icon '+a.ic+'">'+a.icon+'</div><div class="list-main"><div class="list-title">'+a.t+'</div><div class="list-sub">'+a.s+'</div></div></div>';}).join('') : '<div class="empty-state"><div class="icon">✓</div><div class="txt">Tudo em ordem por aqui</div></div>';
+}
+
+let filtroPessoaAtivo = 'todos';
+document.getElementById('filtroPessoas').addEventListener('click', function(e){
+  const chip = e.target.closest('.filter-chip'); if(!chip) return;
+  document.querySelectorAll('#filtroPessoas .filter-chip').forEach(function(c){c.classList.remove('active');});
+  chip.classList.add('active'); filtroPessoaAtivo = chip.dataset.cat; renderPessoas();
+});
+
+function renderPessoas(){
+  const busca = (document.getElementById('buscaPessoas').value||'').toLowerCase();
+  let lista = data.pessoas.filter(function(p){return p.nome.toLowerCase().indexOf(busca)!==-1;});
+  if(filtroPessoaAtivo!=='todos') lista = lista.filter(function(p){return p.categoria===filtroPessoaAtivo;});
+  const el = document.getElementById('listaPessoas');
+  if(lista.length===0){ el.innerHTML = '<div class="empty-state"><div class="icon">◉</div><div class="txt">Nenhuma pessoa encontrada</div></div>'; return; }
+  el.innerHTML = lista.map(function(p){
+    const celula = data.celulas.find(function(c){return c.id===p.celula;});
+    const chipClass = (p.categoria==='Líder de Célula'||p.categoria==='Coordenador'||p.categoria==='Pastor')?'green':(p.categoria==='Visitante'?'warn':'blue');
+    return '<div class="list-row" onclick="goTo(\'perfil\',{id:\''+p.id+'\'})"><div class="list-icon blue">'+initials(p.nome)+'</div><div class="list-main"><div class="list-title">'+p.nome+'</div><div class="list-sub">'+(celula?celula.nome:'Sem célula')+'</div></div><span class="chip '+chipClass+'">'+p.categoria+'</span></div>';
+  }).join('');
+}
+
+function formPessoa(editId){
+  const item = editId ? data.pessoas.find(function(p){return p.id===editId;}) : {};
+  const celulaOptions = data.celulas.map(function(c){return '<option value="'+c.id+'" '+(item.celula===c.id?'selected':'')+'>'+c.nome+'</option>';}).join('');
+  const liderOptions = data.pessoas.filter(function(p){return p.categoria==='Líder de Célula' || p.categoria==='Coordenador';}).map(function(l){return '<option value="'+l.id+'" '+(item.discipulador===l.id?'selected':'')+'>'+l.nome+'</option>';}).join('');
+  const categorias = ['Visitante','Congregado','Membro','Discípulo','Obreiro','Timóteo','Líder de Célula','Coordenador','Pastor'];
+  openSheet(editId?'Editar pessoa':'Nova pessoa',
+    '<div class="form-field"><label>Nome completo</label><input id="p_nome" value="'+(item.nome||'')+'"></div>'+
+    '<div class="form-row2"><div class="form-field"><label>WhatsApp</label><input id="p_whats" value="'+(item.whats||'')+'"></div>'+
+    '<div class="form-field"><label>Data de nascimento</label><input type="date" id="p_nasc" value="'+(item.nascimento||'')+'"></div></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Sexo</label><select id="p_sexo"><option value="F" '+(item.sexo==='F'?'selected':'')+'>Feminino</option><option value="M" '+(item.sexo==='M'?'selected':'')+'>Masculino</option></select></div>'+
+    '<div class="form-field"><label>Estado civil</label><input id="p_civil" value="'+(item.civil||'')+'" placeholder="Solteiro(a)..."></div></div>'+
+    '<div class="form-field"><label>Endereço</label><input id="p_end" value="'+(item.endereco||'')+'"></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Categoria</label><select id="p_cat">'+categorias.map(function(c){return '<option '+(item.categoria===c?'selected':'')+'>'+c+'</option>';}).join('')+'</select></div>'+
+    '<div class="form-field"><label>Status</label><select id="p_status"><option '+(item.status==='Ativo'?'selected':'')+'>Ativo</option><option '+(item.status==='Inativo'?'selected':'')+'>Inativo</option></select></div></div>'+
+    '<div class="form-field"><label>Data de conversão</label><input type="date" id="p_conv" value="'+(item.conversao||'')+'"></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Batizado</label><select id="p_bat"><option value="sim" '+(item.batizado==='sim'?'selected':'')+'>Sim</option><option value="nao" '+(item.batizado==='nao'?'selected':'')+'>Não</option></select></div>'+
+    '<div class="form-field"><label>Célula</label><select id="p_celula"><option value="">Nenhuma</option>'+celulaOptions+'</select></div></div>'+
+    '<div class="form-field"><label>Discipulador (líder responsável)</label><select id="p_disc"><option value="">Nenhum</option>'+liderOptions+'</select></div>'+
+    '<div class="form-field"><label>Observações</label><textarea id="p_obs">'+(item.obs||'')+'</textarea></div>',
+  function(){
+    const nome = document.getElementById('p_nome').value.trim();
+    if(!nome){ showToast('Informe o nome.'); return; }
+    const obj = {
+      id: editId || uid(), nome:nome,
+      whats: document.getElementById('p_whats').value.trim(),
+      nascimento: document.getElementById('p_nasc').value,
+      sexo: document.getElementById('p_sexo').value,
+      civil: document.getElementById('p_civil').value.trim(),
+      endereco: document.getElementById('p_end').value.trim(),
+      categoria: document.getElementById('p_cat').value,
+      status: document.getElementById('p_status').value,
+      conversao: document.getElementById('p_conv').value,
+      batizado: document.getElementById('p_bat').value,
+      celula: document.getElementById('p_celula').value,
+      discipulador: document.getElementById('p_disc').value,
+      obs: document.getElementById('p_obs').value.trim(),
+      contribuicoes: item.contribuicoes||[], cursos: item.cursos||[], anotacoes: item.anotacoes||[],
+    };
+    if(editId){ data.pessoas[data.pessoas.findIndex(function(p){return p.id===editId;})] = obj; } else { data.pessoas.push(obj); }
+    saveData(); closeSheet(); showToast('Pessoa salva.');
+    if(state.screen==='perfil') renderPerfil(); else renderPessoas();
+  });
+}
+
+let pfTabAtiva = 'dados';
+document.getElementById('pfTabs').addEventListener('click', function(e){
+  const tab = e.target.closest('.tab-btn'); if(!tab) return;
+  document.querySelectorAll('#pfTabs .tab-btn').forEach(function(t){t.classList.remove('active');});
+  tab.classList.add('active'); pfTabAtiva = tab.dataset.tab; renderPerfil();
+});
+
+function renderPerfil(){
+  const p = data.pessoas.find(function(x){return x.id===state.pessoaAtual;});
+  if(!p){ goTo('pessoas'); return; }
+  document.getElementById('pfInitials').textContent = initials(p.nome);
+  document.getElementById('pfNome').textContent = p.nome;
+  const celula = data.celulas.find(function(c){return c.id===p.celula;});
+  document.getElementById('pfMeta').textContent = p.categoria+' · '+(celula?celula.nome:'Sem célula');
+
+  const content = document.getElementById('pfContent');
+  if(pfTabAtiva==='dados'){
+    content.innerHTML =
+      '<div class="card list-card field-list">'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">WhatsApp</div><div class="field-val">'+(p.whats||'—')+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Nascimento</div><div class="field-val">'+fmtDate(p.nascimento)+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Endereço</div><div class="field-val">'+(p.endereco||'—')+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Conversão</div><div class="field-val">'+fmtDate(p.conversao)+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Batizado</div><div class="field-val">'+(p.batizado==='sim'?'Sim':'Não')+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Status</div><div class="field-val">'+p.status+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Observações</div><div class="field-val">'+(p.obs||'—')+'</div></div></div>'+
+      '</div><button class="btn secondary" style="margin-top:14px;" onclick="formPessoa(\''+p.id+'\')">Editar dados</button>';
+  } else if(pfTabAtiva==='contrib'){
+    const total = (p.contribuicoes||[]).reduce(function(s,c){return s+Number(c.valor||0);},0);
+    const rows = (p.contribuicoes||[]).map(function(c){return '<div class="list-row"><div class="list-icon green">$</div><div class="list-main"><div class="list-title">'+(c.desc||'Contribuição')+'</div><div class="list-sub">'+fmtDate(c.data)+'</div></div><div class="list-value pos">'+fmtMoney(c.valor)+'</div></div>';}).join('');
+    content.innerHTML = '<div class="kpi" style="margin-bottom:14px;"><div class="label">Total contribuído</div><div class="value growth">'+fmtMoney(total)+'</div></div><div class="card list-card">'+((p.contribuicoes||[]).length?rows:'<div class="empty-state"><div class="icon">$</div><div class="txt">Nenhuma contribuição registrada</div></div>')+'</div>';
+  } else if(pfTabAtiva==='cursos'){
+    const rows = data.cursos.map(function(c){
+      const feito = (p.cursos||[]).includes(c.id);
+      return '<div class="list-row" onclick="toggleCurso(\''+p.id+'\',\''+c.id+'\')"><div class="list-icon '+(feito?'green':'blue')+'">'+(feito?'✓':'○')+'</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+c.categoria+'</div></div><span class="chip '+(feito?'green':'gray')+'">'+(feito?'Concluído':'Pendente')+'</span></div>';
+    }).join('');
+    content.innerHTML = '<div class="card list-card">'+rows+'</div>';
+  } else if(pfTabAtiva==='anot'){
+    const rows = (p.anotacoes||[]).slice().reverse().map(function(a){return '<div class="list-row"><div class="list-icon warn">✎</div><div class="list-main"><div class="list-title">'+a.texto+'</div><div class="list-sub">'+fmtDate(a.data)+'</div></div></div>';}).join('');
+    content.innerHTML = '<button class="btn secondary" style="margin-bottom:12px;" onclick="addAnotacao(\''+p.id+'\')">+ Nova anotação</button><div class="card list-card">'+((p.anotacoes||[]).length?rows:'<div class="empty-state"><div class="icon">✎</div><div class="txt">Nenhuma anotação ainda</div></div>')+'</div>';
+  }
+}
+
+function toggleCurso(pessoaId, cursoId){
+  const p = data.pessoas.find(function(x){return x.id===pessoaId;});
+  p.cursos = p.cursos||[];
+  const i = p.cursos.indexOf(cursoId);
+  if(i>=0) p.cursos.splice(i,1); else p.cursos.push(cursoId);
+  saveData(); renderPerfil();
+}
+function addAnotacao(pessoaId){
+  openSheet('Nova anotação', '<div class="form-field"><label>Anotação</label><textarea id="a_texto" placeholder="Acompanhamento pastoral..."></textarea></div>', function(){
+    const texto = document.getElementById('a_texto').value.trim();
+    if(!texto){ showToast('Escreva algo.'); return; }
+    const p = data.pessoas.find(function(x){return x.id===pessoaId;});
+    p.anotacoes = p.anotacoes||[]; p.anotacoes.push({texto:texto, data:new Date().toISOString().slice(0,10)});
+    saveData(); closeSheet(); renderPerfil(); showToast('Anotação salva.');
+  });
+}
+
+function renderCelulas(){
+  const busca = (document.getElementById('buscaCelulas').value||'').toLowerCase();
+  const lista = data.celulas.filter(function(c){return c.nome.toLowerCase().indexOf(busca)!==-1;});
+  const el = document.getElementById('listaCelulas');
+  if(lista.length===0){ el.innerHTML = '<div class="empty-state"><div class="icon">▣</div><div class="txt">Nenhuma célula cadastrada</div></div>'; return; }
+  el.innerHTML = lista.map(function(c){
+    const membros = data.pessoas.filter(function(p){return p.celula===c.id;}).length;
+    const lider = data.pessoas.find(function(p){return p.id===c.lider;});
+    return '<div class="list-row" onclick="goTo(\'celula-detalhe\',{id:\''+c.id+'\'})"><div class="list-icon blue">▣</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+(lider?lider.nome:'Sem líder')+' · '+(c.dia||'')+'</div></div><span class="chip blue">'+membros+'</span></div>';
+  }).join('');
+}
+
+function formCelula(editId){
+  const item = editId ? data.celulas.find(function(c){return c.id===editId;}) : {};
+  const liderOptions = data.pessoas.map(function(p){return '<option value="'+p.id+'" '+(item.lider===p.id?'selected':'')+'>'+p.nome+'</option>';}).join('');
+  const categorias = ['Jovens','Casais','Mulheres','Homens','Infantil','Mista'];
+  openSheet(editId?'Editar célula':'Nova célula',
+    '<div class="form-field"><label>Nome da célula</label><input id="c_nome" value="'+(item.nome||'')+'"></div>'+
+    '<div class="form-field"><label>Categoria</label><select id="c_cat">'+categorias.map(function(c){return '<option '+(item.categoria===c?'selected':'')+'>'+c+'</option>';}).join('')+'</select></div>'+
+    '<div class="form-field"><label>Líder</label><select id="c_lider"><option value="">Selecione...</option>'+liderOptions+'</select></div>'+
+    '<div class="form-field"><label>Anfitrião</label><select id="c_anf"><option value="">Selecione...</option>'+liderOptions+'</select></div>'+
+    '<div class="form-field"><label>Endereço</label><input id="c_end" value="'+(item.endereco||'')+'"></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Dia da reunião</label><input id="c_dia" value="'+(item.dia||'')+'" placeholder="Quinta-feira"></div>'+
+    '<div class="form-field"><label>Horário</label><input id="c_hora" value="'+(item.hora||'')+'" placeholder="19h30"></div></div>',
+  function(){
+    const nome = document.getElementById('c_nome').value.trim();
+    if(!nome){ showToast('Informe o nome da célula.'); return; }
+    const obj = {
+      id: editId || uid(), nome:nome,
+      categoria: document.getElementById('c_cat').value,
+      lider: document.getElementById('c_lider').value,
+      anfitriao: document.getElementById('c_anf').value,
+      endereco: document.getElementById('c_end').value.trim(),
+      dia: document.getElementById('c_dia').value.trim(),
+      hora: document.getElementById('c_hora').value.trim(),
+    };
+    if(editId){ data.celulas[data.celulas.findIndex(function(c){return c.id===editId;})] = obj; } else { data.celulas.push(obj); }
+    saveData(); closeSheet(); showToast('Célula salva.'); renderCelulas();
+  });
+}
+
+let celTabAtiva = 'info';
+document.querySelectorAll('#screen-celula-detalhe .tab-btn').forEach(function(t){
+  t.addEventListener('click', function(){
+    document.querySelectorAll('#screen-celula-detalhe .tab-btn').forEach(function(x){x.classList.remove('active');});
+    t.classList.add('active'); celTabAtiva = t.dataset.tab; renderCelulaDetalhe();
+  });
+});
+
+function renderCelulaDetalhe(){
+  const c = data.celulas.find(function(x){return x.id===state.celulaAtual;});
+  if(!c){ goTo('celulas'); return; }
+  document.getElementById('celNome').textContent = c.nome;
+  const lider = data.pessoas.find(function(p){return p.id===c.lider;});
+  const anfitriao = data.pessoas.find(function(p){return p.id===c.anfitriao;});
+  const membros = data.pessoas.filter(function(p){return p.celula===c.id;});
+  const content = document.getElementById('celContent');
+
+  if(celTabAtiva==='info'){
+    content.innerHTML =
+      '<div class="card list-card field-list">'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Categoria</div><div class="field-val">'+(c.categoria||'—')+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Líder</div><div class="field-val">'+(lider?lider.nome:'—')+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Anfitrião</div><div class="field-val">'+(anfitriao?anfitriao.nome:'—')+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Endereço</div><div class="field-val">'+(c.endereco||'—')+'</div></div></div>'+
+      '<div class="list-row"><div class="list-main"><div class="field-label">Dia / Horário</div><div class="field-val">'+(c.dia||'—')+' '+(c.hora?'· '+c.hora:'')+'</div></div></div>'+
+      '</div><button class="btn secondary" style="margin-top:14px;" onclick="formCelula(\''+c.id+'\')">Editar célula</button>';
+  } else if(celTabAtiva==='membros'){
+    const rows = membros.map(function(p){return '<div class="list-row" onclick="goTo(\'perfil\',{id:\''+p.id+'\'})"><div class="list-icon blue">'+initials(p.nome)+'</div><div class="list-main"><div class="list-title">'+p.nome+'</div><div class="list-sub">'+p.categoria+'</div></div></div>';}).join('');
+    content.innerHTML = '<div class="card list-card">'+(membros.length?rows:'<div class="empty-state"><div class="icon">◉</div><div class="txt">Nenhum membro nesta célula</div></div>')+'</div>';
+  } else if(celTabAtiva==='relatorios'){
+    const relatorios = data.relatoriosCelula.filter(function(r){return r.celula===c.id;}).sort(function(a,b){return (b.data||'').localeCompare(a.data||'');});
+    const rows = relatorios.map(function(r){return '<div class="list-row"><div class="list-icon blue">▤</div><div class="list-main"><div class="list-title">'+fmtDate(r.data)+' · '+r.presentes+' presentes</div><div class="list-sub">'+(r.visitantes||0)+' visitantes · '+fmtMoney(r.contribuicao)+'</div></div></div>';}).join('');
+    content.innerHTML = '<button class="btn secondary" style="margin-bottom:12px;" onclick="formRelatorioCelula(\''+c.id+'\')">+ Novo relatório semanal</button><div class="card list-card">'+(relatorios.length?rows:'<div class="empty-state"><div class="icon">▤</div><div class="txt">Nenhum relatório registrado</div></div>')+'</div>';
+  }
+}
+
+function formRelatorioCelula(celulaId){
+  openSheet('Relatório semanal',
+    '<div class="form-field"><label>Data do encontro</label><input type="date" id="r_data" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Presentes</label><input type="number" id="r_presentes" value="0"></div>'+
+    '<div class="form-field"><label>Visitantes</label><input type="number" id="r_visitantes" value="0"></div></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Conversões</label><input type="number" id="r_conversoes" value="0"></div>'+
+    '<div class="form-field"><label>Contribuição (R$)</label><input type="number" step="0.01" id="r_contrib" value="0"></div></div>'+
+    '<div class="form-field"><label>Anotações da reunião</label><textarea id="r_anot"></textarea></div>',
+  function(){
+    data.relatoriosCelula.push({
+      id: uid(), celula: celulaId,
+      data: document.getElementById('r_data').value,
+      presentes: Number(document.getElementById('r_presentes').value||0),
+      visitantes: Number(document.getElementById('r_visitantes').value||0),
+      conversoes: Number(document.getElementById('r_conversoes').value||0),
+      contribuicao: Number(document.getElementById('r_contrib').value||0),
+      anotacoes: document.getElementById('r_anot').value.trim(),
+    });
+    saveData(); closeSheet(); showToast('Relatório salvo.'); renderCelulaDetalhe();
+  });
+}
+
+document.getElementById('filtroFinanceiro').addEventListener('click', function(e){
+  const chip = e.target.closest('.filter-chip'); if(!chip) return;
+  document.querySelectorAll('#filtroFinanceiro .filter-chip').forEach(function(c){c.classList.remove('active');});
+  chip.classList.add('active'); renderFinanceiro(chip.dataset.periodo);
+});
+
+function periodoFiltro(items, periodo){
+  const hoje = new Date();
+  return items.filter(function(f){
+    if(!f.data) return false;
+    const d = new Date(f.data+'T00:00:00');
+    if(periodo==='dia') return f.data===hoje.toISOString().slice(0,10);
+    if(periodo==='semana'){ const diff=(hoje-d)/86400000; return diff>=0 && diff<7; }
+    if(periodo==='ano') return d.getFullYear()===hoje.getFullYear();
+    return f.data.slice(0,7)===hoje.toISOString().slice(0,7);
+  });
+}
+
+function renderFinanceiro(periodo){
+  periodo = periodo || 'mes';
+  const filtrados = periodoFiltro(data.financeiro, periodo);
+  const receitas = filtrados.filter(function(f){return f.tipo==='receita';}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+  const despesas = filtrados.filter(function(f){return f.tipo==='despesa';}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+  const saldoTotal = data.financeiro.filter(function(f){return f.tipo==='receita';}).reduce(function(s,f){return s+Number(f.valor||0);},0) - data.financeiro.filter(function(f){return f.tipo==='despesa';}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+
+  document.getElementById('fSaldo').textContent = fmtMoney(saldoTotal);
+  document.getElementById('fReceitas').textContent = fmtMoney(receitas);
+  document.getElementById('fDespesas').textContent = fmtMoney(despesas);
+  document.getElementById('fDizimos').textContent = fmtMoney(filtrados.filter(function(f){return f.categoria==='Dízimo';}).reduce(function(s,f){return s+Number(f.valor||0);},0));
+  document.getElementById('fOfertas').textContent = fmtMoney(filtrados.filter(function(f){return f.categoria==='Oferta';}).reduce(function(s,f){return s+Number(f.valor||0);},0));
+  document.getElementById('fAPagar').textContent = fmtMoney(data.financeiro.filter(function(f){return f.tipo==='despesa' && f.status==='pendente';}).reduce(function(s,f){return s+Number(f.valor||0);},0));
+  document.getElementById('fAReceber').textContent = fmtMoney(data.financeiro.filter(function(f){return f.tipo==='receita' && f.status==='pendente';}).reduce(function(s,f){return s+Number(f.valor||0);},0));
+
+  const el = document.getElementById('listaFinanceiro');
+  const recentes = filtrados.slice().sort(function(a,b){return (b.data||'').localeCompare(a.data||'');}).slice(0,15);
+  el.innerHTML = recentes.length ? recentes.map(function(f){
+    return '<div class="list-row"><div class="list-icon '+(f.tipo==='receita'?'green':'red')+'">'+(f.tipo==='receita'?'↑':'↓')+'</div><div class="list-main"><div class="list-title">'+f.desc+'</div><div class="list-sub">'+f.categoria+' · '+fmtDate(f.data)+'</div></div><div class="list-value '+(f.tipo==='receita'?'pos':'neg')+'">'+(f.tipo==='despesa'?'-':'+')+fmtMoney(f.valor)+'</div></div>';
+  }).join('') : '<div class="empty-state"><div class="icon">$</div><div class="txt">Nenhuma movimentação neste período</div></div>';
+}
+
+function formFinanceiro(){
+  openSheet('Nova movimentação',
+    '<div class="form-field"><label>Tipo</label><select id="fi_tipo"><option value="receita">Receita</option><option value="despesa">Despesa</option></select></div>'+
+    '<div class="form-field"><label>Descrição</label><input id="fi_desc"></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Categoria</label><input id="fi_cat" placeholder="Dízimo, Oferta, Aluguel..."></div>'+
+    '<div class="form-field"><label>Valor (R$)</label><input type="number" step="0.01" id="fi_valor"></div></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Data</label><input type="date" id="fi_data" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
+    '<div class="form-field"><label>Status</label><select id="fi_status"><option value="pago">Pago</option><option value="pendente">Pendente</option></select></div></div>',
+  function(){
+    const desc = document.getElementById('fi_desc').value.trim();
+    const valor = parseFloat(document.getElementById('fi_valor').value);
+    if(!desc || isNaN(valor)){ showToast('Preencha descrição e valor.'); return; }
+    data.financeiro.push({
+      id: uid(), tipo: document.getElementById('fi_tipo').value, desc:desc,
+      categoria: document.getElementById('fi_cat').value.trim() || 'Outras',
+      valor: valor, data: document.getElementById('fi_data').value,
+      status: document.getElementById('fi_status').value,
+    });
+    saveData(); closeSheet(); showToast('Movimentação salva.'); renderFinanceiro();
+  });
+}
+
+function renderCursos(){
+  const el = document.getElementById('listaCursos');
+  el.innerHTML = data.cursos.map(function(c){
+    const feitos = data.pessoas.filter(function(p){return (p.cursos||[]).includes(c.id);}).length;
+    return '<div class="list-row" onclick="goTo(\'curso-detalhe\',{id:\''+c.id+'\'})"><div class="list-icon blue">▤</div><div class="list-main"><div class="list-title">'+c.nome+'</div><div class="list-sub">'+c.categoria+' · '+c.carga+'</div></div><span class="chip green">'+feitos+'</span></div>';
+  }).join('');
+}
+function formCurso(){
+  openSheet('Novo curso',
+    '<div class="form-field"><label>Nome do curso</label><input id="cu_nome"></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Categoria</label><input id="cu_cat" placeholder="Discipulado, Liderança..."></div>'+
+    '<div class="form-field"><label>Carga horária</label><input id="cu_carga" placeholder="8h"></div></div>'+
+    '<div class="form-field"><label>Descrição</label><textarea id="cu_desc"></textarea></div>',
+  function(){
+    const nome = document.getElementById('cu_nome').value.trim();
+    if(!nome){ showToast('Informe o nome do curso.'); return; }
+    data.cursos.push({id:uid(), nome:nome, categoria:document.getElementById('cu_cat').value.trim()||'Geral', carga:document.getElementById('cu_carga').value.trim(), desc:document.getElementById('cu_desc').value.trim()});
+    saveData(); closeSheet(); showToast('Curso criado.'); renderCursos();
+  });
+}
+let cursoTabAtiva = 'fez';
+document.querySelectorAll('#screen-curso-detalhe .tab-btn').forEach(function(t){
+  t.addEventListener('click', function(){
+    document.querySelectorAll('#screen-curso-detalhe .tab-btn').forEach(function(x){x.classList.remove('active');});
+    t.classList.add('active'); cursoTabAtiva = t.dataset.tab; renderCursoDetalhe();
+  });
+});
+function renderCursoDetalhe(){
+  const c = data.cursos.find(function(x){return x.id===state.cursoAtual;});
+  if(!c){ goTo('cursos'); return; }
+  document.getElementById('cursoNome').textContent = c.nome;
+  const fizeram = data.pessoas.filter(function(p){return (p.cursos||[]).includes(c.id);});
+  const naoFizeram = data.pessoas.filter(function(p){return !(p.cursos||[]).includes(c.id);});
+  const lista = cursoTabAtiva==='fez' ? fizeram : naoFizeram;
+  const rows = lista.map(function(p){return '<div class="list-row" onclick="goTo(\'perfil\',{id:\''+p.id+'\'})"><div class="list-icon '+(cursoTabAtiva==='fez'?'green':'blue')+'">'+initials(p.nome)+'</div><div class="list-main"><div class="list-title">'+p.nome+'</div><div class="list-sub">'+p.categoria+'</div></div></div>';}).join('');
+  document.getElementById('cursoContent').innerHTML = '<div class="card list-card">'+(lista.length?rows:'<div class="empty-state"><div class="icon">◉</div><div class="txt">Nenhuma pessoa aqui</div></div>')+'</div>';
+}
+
+function renderRede(){
+  const raizes = data.pessoas.filter(function(p){return !p.discipulador && data.pessoas.some(function(x){return x.discipulador===p.id;});});
+  const el = document.getElementById('arvoreRede');
+  if(raizes.length===0){ el.innerHTML = '<div class="empty-state"><div class="icon">◈</div><div class="txt">Nenhuma estrutura de discipulado registrada ainda</div></div>'; return; }
+  function buildTree(pessoa, depth){
+    const filhos = data.pessoas.filter(function(p){return p.discipulador===pessoa.id;});
+    let html = '<div class="list-row" style="padding-left:'+(depth*20)+'px;"><div class="list-icon '+(depth===0?'green':'blue')+'">'+initials(pessoa.nome)+'</div><div class="list-main"><div class="list-title">'+pessoa.nome+'</div><div class="list-sub">'+filhos.length+' discípulo(s) direto(s)</div></div></div>';
+    filhos.forEach(function(f){ html += buildTree(f, depth+1); });
+    return html;
+  }
+  el.innerHTML = raizes.map(function(r){return buildTree(r,0);}).join('');
+}
+
+function renderCarnes(){
+  const el = document.getElementById('listaCarnes');
+  if(data.carnes.length===0){ el.innerHTML = '<div class="empty-state"><div class="icon">▥</div><div class="txt">Nenhum carnê cadastrado</div></div>'; return; }
+  el.innerHTML = data.carnes.map(function(c){
+    const pessoa = data.pessoas.find(function(p){return p.id===c.pessoa;});
+    const pagas = c.parcelas.filter(function(p){return p.paga;}).length;
+    return '<div class="list-row"><div class="list-icon warn">▥</div><div class="list-main"><div class="list-title">'+c.titulo+'</div><div class="list-sub">'+(pessoa?pessoa.nome:'—')+' · '+pagas+'/'+c.parcelas.length+' parcelas</div></div><span class="chip warn">'+fmtMoney(c.valorParcela)+'</span></div>';
+  }).join('');
+}
+function formCarne(){
+  const pessoaOptions = data.pessoas.map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('');
+  openSheet('Novo carnê',
+    '<div class="form-field"><label>Título / campanha</label><input id="ca_titulo" placeholder="Campanha de construção"></div>'+
+    '<div class="form-field"><label>Pessoa</label><select id="ca_pessoa"><option value="">Selecione...</option>'+pessoaOptions+'</select></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Número de parcelas</label><input type="number" id="ca_parcelas" value="12"></div>'+
+    '<div class="form-field"><label>Valor da parcela (R$)</label><input type="number" step="0.01" id="ca_valor"></div></div>',
+  function(){
+    const titulo = document.getElementById('ca_titulo').value.trim();
+    const n = Number(document.getElementById('ca_parcelas').value||0);
+    const valor = parseFloat(document.getElementById('ca_valor').value);
+    if(!titulo || !n || isNaN(valor)){ showToast('Preencha todos os campos.'); return; }
+    const parcelas = [];
+    for(let i=0;i<n;i++){ parcelas.push({numero:i+1, paga:false}); }
+    data.carnes.push({id:uid(), titulo:titulo, pessoa:document.getElementById('ca_pessoa').value, valorParcela:valor, parcelas:parcelas});
+    saveData(); closeSheet(); showToast('Carnê criado.'); renderCarnes();
+  });
+}
+
+function renderRelatorios(){
+  const hoje = new Date(); const mesAtual = hoje.toISOString().slice(0,7);
+  const receitas = data.financeiro.filter(function(f){return f.tipo==='receita' && (f.data||'').indexOf(mesAtual)===0;}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+  const despesas = data.financeiro.filter(function(f){return f.tipo==='despesa' && (f.data||'').indexOf(mesAtual)===0;}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+  const max = Math.max(receitas, despesas, 1);
+  document.getElementById('barReceita').style.height = Math.max((receitas/max)*100,4)+'%';
+  document.getElementById('barDespesa').style.height = Math.max((despesas/max)*100,4)+'%';
+  document.getElementById('relTotalMembros').textContent = data.pessoas.length;
+}
+
+function verPendentes(){
+  if(data.pendentes.length===0){ showToast('Nenhum cadastro pendente.'); return; }
+  const html = data.pendentes.map(function(p){return '<div class="list-row"><div class="list-icon blue">'+initials(p.nome)+'</div><div class="list-main"><div class="list-title">'+p.nome+'</div><div class="list-sub">'+(p.whats||'')+'</div></div><button class="btn" style="width:auto; padding:8px 12px;" onclick="aprovarPendente(\''+p.id+'\')">Aprovar</button></div>';}).join('');
+  openSheet('Cadastros pendentes', '<div class="card list-card">'+html+'</div>', closeSheet);
+}
+function aprovarPendente(id){
+  const idx = data.pendentes.findIndex(function(p){return p.id===id;});
+  const p = data.pendentes[idx];
+  data.pessoas.push(Object.assign({}, p, {categoria:'Visitante', status:'Ativo', cursos:[], contribuicoes:[], anotacoes:[]}));
+  data.pendentes.splice(idx,1);
+  saveData(); closeSheet(); showToast('Cadastro aprovado.');
+}
+
+</script>
+</body>
+</html>
