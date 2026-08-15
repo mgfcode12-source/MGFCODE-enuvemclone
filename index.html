@@ -194,13 +194,63 @@
     .nav-btn.active{background:var(--primary-soft); color:var(--primary);}
 
     .main-col{margin-left:232px; flex:1; min-width:0; padding:0 32px;}
-    .topbar{max-width:900px; margin:0 auto; padding-top:26px;}
+    .topbar{
+      max-width:900px; margin:0 auto; padding-top:26px;
+      position:sticky; top:0; z-index:20; background:var(--bg);
+      padding-bottom:14px; margin-bottom:-4px; border-bottom:1px solid transparent;
+    }
     .screen{max-width:900px; margin:0 auto; padding-left:0; padding-right:0;}
     .kpi-grid{grid-template-columns:repeat(4,1fr);}
+
+    /* Escaneamento: grades de 2 colunas encurtam o percurso do olho (menos rolagem = menos carga
+       de memória de trabalho para lembrar o que já foi visto). Cada item vira um "bloco" com borda
+       própria (agrupamento por região, em vez do traço superior pensado para pilha vertical). */
+    #listaPessoas, #listaCelulas, #listaFinanceiro, #listaCursos, #listaCarnes,
+    #hAniversariantes, #hAlertas{
+      display:grid; grid-template-columns:1fr 1fr; gap:8px;
+    }
+    #listaPessoas .list-row, #listaCelulas .list-row, #listaFinanceiro .list-row,
+    #listaCursos .list-row, #listaCarnes .list-row,
+    #hAniversariantes .list-row, #hAlertas .list-row{
+      border:1px solid var(--line); border-radius:var(--radius-sm);
+    }
+    #listaPessoas .list-row + .list-row, #listaCelulas .list-row + .list-row, #listaFinanceiro .list-row + .list-row,
+    #listaCursos .list-row + .list-row, #listaCarnes .list-row + .list-row,
+    #hAniversariantes .list-row + .list-row, #hAlertas .list-row + .list-row{
+      border-top:1px solid var(--line);
+    }
+
+    /* Reforço de alvo ao apontar: o mouse permite mais precisão que o toque, então o hover confirma
+       o alvo antes do clique (lei de Fitts) — só em itens realmente clicáveis, pra não sugerir ação
+       onde não existe. */
+    #listaPessoas .list-row[onclick]:hover, #listaCelulas .list-row[onclick]:hover,
+    #listaFinanceiro .list-row[onclick]:hover, #listaCursos .list-row[onclick]:hover,
+    #listaCarnes .list-row[onclick]:hover, .nav-btn:hover{
+      background:var(--primary-soft); cursor:pointer;
+    }
+    .more-tile:hover{
+      border-color:var(--primary); cursor:pointer;
+      transform:translateY(-1px); box-shadow:0 6px 16px rgba(37,99,235,.12);
+    }
+
+    /* Densidade de menu: 3 colunas usam a largura disponível mantendo o agrupamento dentro do
+       limite confortável de itens por bloco visual (~7, lei de Miller). */
+    #screen-mais .grid-more{grid-template-columns:repeat(3,1fr);}
+
+    /* Hierarquia: números-chave ganham mais peso onde há espaço de leitura periférica de sobra. */
+    .kpi .value{font-size:24px;}
+    .balance-card .value{font-size:34px;}
 
     .fab{
       position:fixed; right:40px; bottom:40px; left:auto;
       width:60px; height:60px; font-size:28px;
+    }
+  }
+
+  /* Telas bem largas: 3 colunas nas listas, ainda dentro do limite confortável de leitura por bloco */
+  @media (min-width:1300px){
+    #listaPessoas, #listaCelulas, #listaFinanceiro, #listaCursos, #listaCarnes{
+      grid-template-columns:repeat(3,1fr);
     }
   }
   .btn{
