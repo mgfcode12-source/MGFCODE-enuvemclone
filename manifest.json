@@ -1,6 +1,6 @@
 {
-  "name": "eNuvemGF",
-  "short_name": "eNuvemGF",
+  "name": "Cloud MGF",
+  "short_name": "Cloud MGF",
   "description": "Gestão da igreja - membros, células e financeiro",
   "start_url": "./index.html",
   "scope": "./",
