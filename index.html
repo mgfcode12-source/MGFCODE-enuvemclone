@@ -536,7 +536,7 @@
     </div>
   </div>
 
-  <button class="fab" id="fabBtn">+</button>
+  <button class="fab" id="fabBtn" onclick="handleFab()">+</button>
 </div>
 
 <div class="sheet-overlay" id="sheetOverlay">
@@ -563,7 +563,18 @@
 const SUPABASE_URL = 'https://qwqfmbojxcorupydfgsh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWZtYm9qeGNvcnVweWRmZ3NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NTA4OTgsImV4cCI6MjEwMjMyNjg5OH0.M21WgJZcjzfyhw81Z1Jwh-UyloUha1z8urtPN6qnZPk';
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let sb;
+try{
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}catch(e){
+  console.error('Falha ao iniciar Supabase (CDN pode ter bloqueado):', e);
+  const noop = async ()=>({ data:null, error:{message:'Sem conexão com o servidor.'} });
+  const chain = { select:()=>chain, eq:()=>chain, maybeSingle:noop, insert:noop, update:()=>chain };
+  sb = {
+    auth:{ getSession: async()=>({data:{session:null}}), signInWithPassword: async()=>({error:{message:'Não foi possível conectar ao servidor.'}}), signOut: async()=>{} },
+    from: ()=>chain
+  };
+}
 const ROW_ID = 'main'; // uma única igreja = uma única linha de dados compartilhada
 
 function seedData(){
@@ -631,11 +642,17 @@ async function bootApp(){
 }
 
 (async function init(){
-  const { data: sessionData } = await sb.auth.getSession();
-  document.getElementById('loadingScreen').style.display = 'none';
-  if(sessionData && sessionData.session){
-    await bootApp();
-  } else {
+  try{
+    const { data: sessionData } = await sb.auth.getSession();
+    document.getElementById('loadingScreen').style.display = 'none';
+    if(sessionData && sessionData.session){
+      await bootApp();
+    } else {
+      document.getElementById('authScreen').style.display = 'flex';
+    }
+  }catch(e){
+    console.error('Erro na inicialização:', e);
+    document.getElementById('loadingScreen').style.display = 'none';
     document.getElementById('authScreen').style.display = 'flex';
   }
 })();
@@ -703,13 +720,13 @@ function openSheet(title, html, onSave){
 function closeSheet(){ sheetOverlay.classList.remove('open'); }
 sheetOverlay.addEventListener('click', function(e){ if(e.target===sheetOverlay) closeSheet(); });
 
-document.getElementById('fabBtn').addEventListener('click', function(){
+function handleFab(){
   if(state.screen==='pessoas') return formPessoa();
   if(state.screen==='celulas') return formCelula();
   if(state.screen==='financeiro') return formFinanceiro();
   if(state.screen==='cursos') return formCurso();
   if(state.screen==='carnes') return formCarne();
-});
+}
 
 function renderInicio(){
   const membrosAtivos = data.pessoas.filter(function(p){return p.status==='Ativo';});
