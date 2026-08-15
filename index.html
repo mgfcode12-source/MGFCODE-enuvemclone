@@ -434,10 +434,11 @@
     <div class="searchbar"><span class="ic">⌕</span><input id="buscaPessoas" placeholder="Buscar por nome..." oninput="renderPessoas()"></div>
     <div class="filter-row" id="filtroPessoas">
       <div class="filter-chip active" data-cat="todos">Todos</div>
-      <div class="filter-chip" data-cat="Membro">Membros</div>
+      <div class="filter-chip" data-cat="Discípulo">Discípulos</div>
+      <div class="filter-chip" data-cat="Anfitrião">Anfitriões</div>
+      <div class="filter-chip" data-cat="Timóteo">Timóteos</div>
       <div class="filter-chip" data-cat="Líder de Célula">Líderes</div>
-      <div class="filter-chip" data-cat="Congregado">Congregados</div>
-      <div class="filter-chip" data-cat="Visitante">Visitantes</div>
+      <div class="filter-chip" data-cat="Pastor">Pastores</div>
     </div>
     <div class="card list-card" id="listaPessoas"></div>
   </section>
@@ -496,6 +497,7 @@
       <div class="kpi"><div class="label">Contas a pagar</div><div class="value" id="fAPagar" style="color:var(--danger);">R$ 0,00</div></div>
       <div class="kpi"><div class="label">Contas a receber</div><div class="value" id="fAReceber" style="color:var(--warn);">R$ 0,00</div></div>
     </div>
+    <button class="btn secondary" style="margin-top:14px;" onclick="verEstatisticasFinanceiro()">📊 Ver estatísticas completas</button>
     <div class="section-title">Movimentações recentes</div>
     <div class="card list-card" id="listaFinanceiro"></div>
   </section>
@@ -699,7 +701,7 @@ if('serviceWorker' in navigator){
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function fmtMoney(n){ return 'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function fmtDate(d){ if(!d) return '—'; const parts=d.split('-'); return parts[2]+'/'+parts[1]+'/'+parts[0]; }
+function fmtDate(d){ if(!d) return '—'; if(d==='nao_lembro') return 'Não lembro'; const parts=d.split('-'); return parts[2]+'/'+parts[1]+'/'+parts[0]; }
 function initials(nome){ return (nome||'--').trim().split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
 
@@ -746,11 +748,12 @@ function renderScreen(screen){
 }
 
 const sheetOverlay = document.getElementById('sheetOverlay');
-function openSheet(title, html, onSave){
+function openSheet(title, html, onSave, saveLabel){
   document.getElementById('sheetTitle').textContent = title;
   document.getElementById('sheetBody').innerHTML = html;
   sheetOverlay.classList.add('open');
   document.getElementById('sheetSave').onclick = onSave;
+  document.getElementById('sheetSave').textContent = saveLabel || 'Salvar';
 }
 function closeSheet(){ sheetOverlay.classList.remove('open'); }
 sheetOverlay.addEventListener('click', function(e){ if(e.target===sheetOverlay) closeSheet(); });
@@ -765,7 +768,7 @@ document.getElementById('fabBtn').addEventListener('click', function(){
 
 function renderInicio(){
   const membrosAtivos = data.pessoas.filter(function(p){return p.status==='Ativo';});
-  const lideres = data.pessoas.filter(function(p){return p.categoria==='Líder de Célula' || p.categoria==='Coordenador';});
+  const lideres = data.pessoas.filter(function(p){return p.categoria==='Líder de Célula' || p.categoria==='Pastor';});
   const semCelula = membrosAtivos.filter(function(p){return !p.celula;});
   const discipulos = data.pessoas.filter(function(p){return p.discipulador;});
 
@@ -813,7 +816,7 @@ function renderPessoas(){
   if(lista.length===0){ el.innerHTML = '<div class="empty-state"><div class="icon">◉</div><div class="txt">Nenhuma pessoa encontrada</div></div>'; return; }
   el.innerHTML = lista.map(function(p){
     const celula = data.celulas.find(function(c){return c.id===p.celula;});
-    const chipClass = (p.categoria==='Líder de Célula'||p.categoria==='Coordenador'||p.categoria==='Pastor')?'green':(p.categoria==='Visitante'?'warn':'blue');
+    const chipClass = (p.categoria==='Líder de Célula'||p.categoria==='Pastor')?'green':(p.categoria==='Anfitrião'?'warn':'blue');
     return '<div class="list-row" onclick="goTo(\'perfil\',{id:\''+p.id+'\'})"><div class="list-icon blue">'+initials(p.nome)+'</div><div class="list-main"><div class="list-title">'+p.nome+'</div><div class="list-sub">'+(celula?celula.nome:'Sem célula')+'</div></div><span class="chip '+chipClass+'">'+p.categoria+'</span></div>';
   }).join('');
 }
@@ -821,35 +824,38 @@ function renderPessoas(){
 function formPessoa(editId){
   const item = editId ? data.pessoas.find(function(p){return p.id===editId;}) : {};
   const celulaOptions = data.celulas.map(function(c){return '<option value="'+c.id+'" '+(item.celula===c.id?'selected':'')+'>'+c.nome+'</option>';}).join('');
-  const liderOptions = data.pessoas.filter(function(p){return p.categoria==='Líder de Célula' || p.categoria==='Coordenador';}).map(function(l){return '<option value="'+l.id+'" '+(item.discipulador===l.id?'selected':'')+'>'+l.nome+'</option>';}).join('');
-  const categorias = ['Visitante','Congregado','Membro','Discípulo','Obreiro','Timóteo','Líder de Célula','Coordenador','Pastor'];
+  const liderOptions = data.pessoas.filter(function(p){return p.categoria==='Líder de Célula' || p.categoria==='Pastor';}).map(function(l){return '<option value="'+l.id+'" '+(item.discipulador===l.id?'selected':'')+'>'+l.nome+'</option>';}).join('');
+  const categorias = ['Discípulo','Anfitrião','Timóteo','Líder de Célula','Pastor'];
+  const naoLembra = item.conversao==='nao_lembro';
   openSheet(editId?'Editar pessoa':'Nova pessoa',
     '<div class="form-field"><label>Nome completo</label><input id="p_nome" value="'+(item.nome||'')+'"></div>'+
     '<div class="form-row2"><div class="form-field"><label>WhatsApp</label><input id="p_whats" value="'+(item.whats||'')+'"></div>'+
     '<div class="form-field"><label>Data de nascimento</label><input type="date" id="p_nasc" value="'+(item.nascimento||'')+'"></div></div>'+
-    '<div class="form-row2"><div class="form-field"><label>Sexo</label><select id="p_sexo"><option value="F" '+(item.sexo==='F'?'selected':'')+'>Feminino</option><option value="M" '+(item.sexo==='M'?'selected':'')+'>Masculino</option></select></div>'+
-    '<div class="form-field"><label>Estado civil</label><input id="p_civil" value="'+(item.civil||'')+'" placeholder="Solteiro(a)..."></div></div>'+
+    '<div class="form-field"><label>Sexo</label><select id="p_sexo"><option value="F" '+(item.sexo==='F'?'selected':'')+'>Feminino</option><option value="M" '+(item.sexo==='M'?'selected':'')+'>Masculino</option></select></div>'+
     '<div class="form-field"><label>Endereço</label><input id="p_end" value="'+(item.endereco||'')+'"></div>'+
     '<div class="form-row2"><div class="form-field"><label>Categoria</label><select id="p_cat">'+categorias.map(function(c){return '<option '+(item.categoria===c?'selected':'')+'>'+c+'</option>';}).join('')+'</select></div>'+
     '<div class="form-field"><label>Status</label><select id="p_status"><option '+(item.status==='Ativo'?'selected':'')+'>Ativo</option><option '+(item.status==='Inativo'?'selected':'')+'>Inativo</option></select></div></div>'+
-    '<div class="form-field"><label>Data de conversão</label><input type="date" id="p_conv" value="'+(item.conversao||'')+'"></div>'+
+    '<div class="form-field"><label>Data de conversão</label><input type="date" id="p_conv" value="'+(naoLembra?'':(item.conversao||''))+'" '+(naoLembra?'disabled':'')+'>'+
+      '<label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-weight:500; font-size:12.5px; color:var(--ink-2);"><input type="checkbox" id="p_conv_nl" style="width:auto;" '+(naoLembra?'checked':'')+' onchange="document.getElementById(\'p_conv\').disabled=this.checked; if(this.checked) document.getElementById(\'p_conv\').value=\'\';"> Não lembro a data</label></div>'+
     '<div class="form-row2"><div class="form-field"><label>Batizado</label><select id="p_bat"><option value="sim" '+(item.batizado==='sim'?'selected':'')+'>Sim</option><option value="nao" '+(item.batizado==='nao'?'selected':'')+'>Não</option></select></div>'+
-    '<div class="form-field"><label>Célula</label><select id="p_celula"><option value="">Nenhuma</option>'+celulaOptions+'</select></div></div>'+
-    '<div class="form-field"><label>Discipulador (líder responsável)</label><select id="p_disc"><option value="">Nenhum</option>'+liderOptions+'</select></div>'+
+    '<div class="form-field"><label>Célula</label><select id="p_celula"><option value="">Nenhuma</option>'+celulaOptions+'</select>'+
+      '<button type="button" class="btn secondary" style="margin-top:6px; padding:8px; font-size:12.5px;" onclick="quickAddCelula()">+ Cadastrar nova célula</button></div></div>'+
+    '<div class="form-field"><label>Discipulador (líder responsável)</label><select id="p_disc"><option value="">Nenhum</option>'+liderOptions+'</select>'+
+      '<button type="button" class="btn secondary" style="margin-top:6px; padding:8px; font-size:12.5px;" onclick="quickAddLider()">+ Cadastrar novo líder</button></div>'+
     '<div class="form-field"><label>Observações</label><textarea id="p_obs">'+(item.obs||'')+'</textarea></div>',
   function(){
     const nome = document.getElementById('p_nome').value.trim();
     if(!nome){ showToast('Informe o nome.'); return; }
+    const semData = document.getElementById('p_conv_nl').checked;
     const obj = {
       id: editId || uid(), nome:nome,
       whats: document.getElementById('p_whats').value.trim(),
       nascimento: document.getElementById('p_nasc').value,
       sexo: document.getElementById('p_sexo').value,
-      civil: document.getElementById('p_civil').value.trim(),
       endereco: document.getElementById('p_end').value.trim(),
       categoria: document.getElementById('p_cat').value,
       status: document.getElementById('p_status').value,
-      conversao: document.getElementById('p_conv').value,
+      conversao: semData ? 'nao_lembro' : document.getElementById('p_conv').value,
       batizado: document.getElementById('p_bat').value,
       celula: document.getElementById('p_celula').value,
       discipulador: document.getElementById('p_disc').value,
@@ -860,6 +866,34 @@ function formPessoa(editId){
     saveData(); closeSheet(); showToast('Pessoa salva.');
     if(state.screen==='perfil') renderPerfil(); else renderPessoas();
   });
+}
+
+// Cadastro rápido de célula direto de dentro do formulário de pessoa (sem perder o que já foi digitado)
+function quickAddCelula(){
+  const nome = prompt('Nome da nova célula:');
+  if(!nome || !nome.trim()) return;
+  const nova = { id: uid(), nome: nome.trim(), categoria:'Mista', lider:'', anfitriao:'', endereco:'', dia:'', hora:'' };
+  data.celulas.push(nova);
+  saveData();
+  const sel = document.getElementById('p_celula');
+  const opt = document.createElement('option');
+  opt.value = nova.id; opt.textContent = nova.nome;
+  sel.appendChild(opt); sel.value = nova.id;
+  showToast('Célula "'+nova.nome+'" cadastrada. Depois edite líder/anfitrião em Células.');
+}
+
+// Cadastro rápido de líder direto de dentro do formulário de pessoa
+function quickAddLider(){
+  const nome = prompt('Nome do novo líder:');
+  if(!nome || !nome.trim()) return;
+  const novo = { id: uid(), nome: nome.trim(), categoria:'Líder de Célula', status:'Ativo', whats:'', nascimento:'', sexo:'F', endereco:'', conversao:'', batizado:'nao', celula:'', discipulador:'', obs:'', contribuicoes:[], cursos:[], anotacoes:[] };
+  data.pessoas.push(novo);
+  saveData();
+  const sel = document.getElementById('p_disc');
+  const opt = document.createElement('option');
+  opt.value = novo.id; opt.textContent = novo.nome;
+  sel.appendChild(opt); sel.value = novo.id;
+  showToast('Líder "'+novo.nome+'" cadastrado.');
 }
 
 let pfTabAtiva = 'dados';
@@ -936,27 +970,38 @@ function renderCelulas(){
 
 function formCelula(editId){
   const item = editId ? data.celulas.find(function(c){return c.id===editId;}) : {};
-  const liderOptions = data.pessoas.map(function(p){return '<option value="'+p.id+'" '+(item.lider===p.id?'selected':'')+'>'+p.nome+'</option>';}).join('');
+  const outrasLideres = data.celulas.filter(function(c){return c.id!==editId;}).map(function(c){return c.lider;}).filter(Boolean);
+  const outrosAnfitrioes = data.celulas.filter(function(c){return c.id!==editId;}).map(function(c){return c.anfitriao;}).filter(Boolean);
+  const liderOptions = data.pessoas.filter(function(p){return !outrasLideres.includes(p.id);}).map(function(p){return '<option value="'+p.id+'" '+(item.lider===p.id?'selected':'')+'>'+p.nome+'</option>';}).join('');
+  const anfitriaoOptions = data.pessoas.filter(function(p){return !outrosAnfitrioes.includes(p.id);}).map(function(p){return '<option value="'+p.id+'" '+(item.anfitriao===p.id?'selected':'')+'>'+p.nome+'</option>';}).join('');
   const categorias = ['Jovens','Casais','Mulheres','Homens','Infantil','Mista'];
+  const dias = ['Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado','Domingo'];
+  const horarios = [];
+  for(let h=6; h<=22; h++){ horarios.push((h<10?'0'+h:h)+'h00'); horarios.push((h<10?'0'+h:h)+'h30'); }
+  horarios.push('23h00');
   openSheet(editId?'Editar célula':'Nova célula',
     '<div class="form-field"><label>Nome da célula</label><input id="c_nome" value="'+(item.nome||'')+'"></div>'+
     '<div class="form-field"><label>Categoria</label><select id="c_cat">'+categorias.map(function(c){return '<option '+(item.categoria===c?'selected':'')+'>'+c+'</option>';}).join('')+'</select></div>'+
-    '<div class="form-field"><label>Líder</label><select id="c_lider"><option value="">Selecione...</option>'+liderOptions+'</select></div>'+
-    '<div class="form-field"><label>Anfitrião</label><select id="c_anf"><option value="">Selecione...</option>'+liderOptions+'</select></div>'+
+    '<div class="form-field"><label>Líder</label><select id="c_lider"><option value="">Selecione...</option>'+liderOptions+'</select><div style="font-size:11.5px; color:var(--ink-2); margin-top:4px;">Cada pessoa só pode liderar uma célula.</div></div>'+
+    '<div class="form-field"><label>Anfitrião</label><select id="c_anf"><option value="">Selecione...</option>'+anfitriaoOptions+'</select><div style="font-size:11.5px; color:var(--ink-2); margin-top:4px;">Cada pessoa só pode ser anfitrião de uma célula.</div></div>'+
     '<div class="form-field"><label>Endereço</label><input id="c_end" value="'+(item.endereco||'')+'"></div>'+
-    '<div class="form-row2"><div class="form-field"><label>Dia da reunião</label><input id="c_dia" value="'+(item.dia||'')+'" placeholder="Quinta-feira"></div>'+
-    '<div class="form-field"><label>Horário</label><input id="c_hora" value="'+(item.hora||'')+'" placeholder="19h30"></div></div>',
+    '<div class="form-row2"><div class="form-field"><label>Dia da reunião</label><select id="c_dia">'+dias.map(function(d){return '<option '+(item.dia===d?'selected':'')+'>'+d+'</option>';}).join('')+'</select></div>'+
+    '<div class="form-field"><label>Horário</label><select id="c_hora">'+horarios.map(function(h){return '<option '+(item.hora===h?'selected':'')+'>'+h+'</option>';}).join('')+'</select></div></div>',
   function(){
     const nome = document.getElementById('c_nome').value.trim();
     if(!nome){ showToast('Informe o nome da célula.'); return; }
+    const lider = document.getElementById('c_lider').value;
+    const anfitriao = document.getElementById('c_anf').value;
+    if(lider && outrasLideres.includes(lider)){ showToast('Essa pessoa já lidera outra célula.'); return; }
+    if(anfitriao && outrosAnfitrioes.includes(anfitriao)){ showToast('Essa pessoa já é anfitriã de outra célula.'); return; }
     const obj = {
       id: editId || uid(), nome:nome,
       categoria: document.getElementById('c_cat').value,
-      lider: document.getElementById('c_lider').value,
-      anfitriao: document.getElementById('c_anf').value,
+      lider: lider,
+      anfitriao: anfitriao,
       endereco: document.getElementById('c_end').value.trim(),
-      dia: document.getElementById('c_dia').value.trim(),
-      hora: document.getElementById('c_hora').value.trim(),
+      dia: document.getElementById('c_dia').value,
+      hora: document.getElementById('c_hora').value,
     };
     if(editId){ data.celulas[data.celulas.findIndex(function(c){return c.id===editId;})] = obj; } else { data.celulas.push(obj); }
     saveData(); closeSheet(); showToast('Célula salva.'); renderCelulas();
@@ -1063,22 +1108,33 @@ function renderFinanceiro(periodo){
   }).join('') : '<div class="empty-state"><div class="icon">$</div><div class="txt">Nenhuma movimentação neste período</div></div>';
 }
 
+function categoriaFieldFinanceiro(tipo, valorAtual){
+  if(tipo==='despesa'){
+    return '<label>Categoria</label><input id="fi_cat" value="'+(valorAtual||'')+'" placeholder="Aluguel, Água, Luz, Manutenção...">';
+  }
+  const opts = ['Dízimo','Oferta','Oferta Extraordinária'];
+  return '<label>Categoria</label><select id="fi_cat">'+opts.map(function(o){return '<option '+(valorAtual===o?'selected':'')+'>'+o+'</option>';}).join('')+'</select>';
+}
+function atualizarCategoriaFinanceiro(){
+  document.getElementById('fi_cat_wrap').innerHTML = categoriaFieldFinanceiro(document.getElementById('fi_tipo').value, '');
+}
+
 function formFinanceiro(){
   const pessoaOptions = data.pessoas.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('');
   openSheet('Nova movimentação',
-    '<div class="form-field"><label>Tipo</label><select id="fi_tipo"><option value="receita">Receita</option><option value="despesa">Despesa</option></select></div>'+
-    '<div class="form-field"><label>Descrição</label><input id="fi_desc"></div>'+
-    '<div class="form-row2"><div class="form-field"><label>Categoria</label><input id="fi_cat" placeholder="Dízimo, Oferta, Aluguel..."></div>'+
-    '<div class="form-field"><label>Valor (R$)</label><input type="number" step="0.01" id="fi_valor"></div></div>'+
-    '<div class="form-field"><label>Pessoa (opcional)</label><select id="fi_pessoa"><option value="">Nenhuma / anônimo</option>'+pessoaOptions+'</select></div>'+
-    '<div class="form-row2"><div class="form-field"><label>Data</label><input type="date" id="fi_data" value="'+new Date().toISOString().slice(0,10)+'"></div>'+
-    '<div class="form-field"><label>Status</label><select id="fi_status"><option value="pago">Pago</option><option value="pendente">Pendente</option></select></div></div>',
+    '<div class="form-field"><label>Tipo</label><select id="fi_tipo" onchange="atualizarCategoriaFinanceiro()"><option value="receita">Receita</option><option value="despesa">Despesa</option></select></div>'+
+    '<div class="form-field" id="fi_cat_wrap">'+categoriaFieldFinanceiro('receita','')+'</div>'+
+    '<div class="form-field"><label>De quem (opcional)</label><select id="fi_pessoa"><option value="">Nenhuma / anônimo</option>'+pessoaOptions+'</select></div>'+
+    '<div class="form-field"><label>Descrição (opcional)</label><input id="fi_desc" placeholder="Deixe em branco para usar a categoria"></div>'+
+    '<div class="form-row2"><div class="form-field"><label>Valor (R$)</label><input type="number" step="0.01" id="fi_valor"></div>'+
+    '<div class="form-field"><label>Data</label><input type="date" id="fi_data" value="'+new Date().toISOString().slice(0,10)+'"></div></div>'+
+    '<div class="form-field"><label>Status</label><select id="fi_status"><option value="pago">Pago</option><option value="pendente">Pendente</option></select></div>',
   function(){
-    const desc = document.getElementById('fi_desc').value.trim();
-    const valor = parseFloat(document.getElementById('fi_valor').value);
-    if(!desc || isNaN(valor)){ showToast('Preencha descrição e valor.'); return; }
-    const tipo = document.getElementById('fi_tipo').value;
     const categoria = document.getElementById('fi_cat').value.trim() || 'Outras';
+    const desc = document.getElementById('fi_desc').value.trim() || categoria;
+    const valor = parseFloat(document.getElementById('fi_valor').value);
+    if(isNaN(valor)){ showToast('Informe o valor.'); return; }
+    const tipo = document.getElementById('fi_tipo').value;
     const dataMov = document.getElementById('fi_data').value;
     const pessoaId = document.getElementById('fi_pessoa').value;
     data.financeiro.push({
@@ -1094,6 +1150,48 @@ function formFinanceiro(){
     }
     saveData(); closeSheet(); showToast('Movimentação salva.'); renderFinanceiro();
   });
+}
+
+function verEstatisticasFinanceiro(){
+  function soma(items, tipo){ return items.filter(function(f){return f.tipo===tipo;}).reduce(function(s,f){return s+Number(f.valor||0);},0); }
+  const periodos = [
+    {label:'Hoje', items:periodoFiltro(data.financeiro,'dia')},
+    {label:'Esta semana', items:periodoFiltro(data.financeiro,'semana')},
+    {label:'Este mês', items:periodoFiltro(data.financeiro,'mes')},
+    {label:'Este ano', items:periodoFiltro(data.financeiro,'ano')},
+  ];
+  const periodosHtml = periodos.map(function(p){
+    const ent = soma(p.items,'receita'), sai = soma(p.items,'despesa');
+    return '<div class="list-row"><div class="list-main"><div class="list-title">'+p.label+'</div><div class="list-sub">Entradas '+fmtMoney(ent)+' · Saídas '+fmtMoney(sai)+'</div></div><div class="list-value '+((ent-sai)>=0?'pos':'neg')+'">'+fmtMoney(ent-sai)+'</div></div>';
+  }).join('');
+
+  const categoriasReceita = ['Dízimo','Oferta','Oferta Extraordinária'];
+  const catHtml = categoriasReceita.map(function(c){
+    const total = data.financeiro.filter(function(f){return f.tipo==='receita' && f.categoria===c;}).reduce(function(s,f){return s+Number(f.valor||0);},0);
+    return '<div class="list-row"><div class="list-main"><div class="list-title">'+c+'</div></div><div class="list-value pos">'+fmtMoney(total)+'</div></div>';
+  }).join('');
+
+  const porPessoa = {};
+  data.financeiro.filter(function(f){return f.tipo==='receita' && f.pessoa;}).forEach(function(f){
+    porPessoa[f.pessoa] = (porPessoa[f.pessoa]||0) + Number(f.valor||0);
+  });
+  const ranking = Object.keys(porPessoa).map(function(id){
+    const p = data.pessoas.find(function(x){return x.id===id;});
+    return { nome: p?p.nome:'—', total: porPessoa[id] };
+  }).sort(function(a,b){return b.total-a.total;}).slice(0,10);
+  const rankingHtml = ranking.length ? ranking.map(function(r,i){
+    return '<div class="list-row"><div class="list-icon blue">'+(i+1)+'</div><div class="list-main"><div class="list-title">'+r.nome+'</div></div><div class="list-value pos">'+fmtMoney(r.total)+'</div></div>';
+  }).join('') : '<div class="empty-state"><div class="icon">$</div><div class="txt">Nenhuma contribuição associada a pessoas ainda</div></div>';
+
+  const html =
+    '<div class="section-title" style="margin-top:0;">Por período</div>'+
+    '<div class="card list-card">'+periodosHtml+'</div>'+
+    '<div class="section-title">Por categoria (histórico completo)</div>'+
+    '<div class="card list-card">'+catHtml+'</div>'+
+    '<div class="section-title">Quem mais contribuiu (histórico completo)</div>'+
+    '<div class="card list-card">'+rankingHtml+'</div>';
+
+  openSheet('Estatísticas financeiras', html, closeSheet, 'Fechar');
 }
 
 function renderCursos(){
@@ -1193,7 +1291,7 @@ function verPendentes(){
 function aprovarPendente(id){
   const idx = data.pendentes.findIndex(function(p){return p.id===id;});
   const p = data.pendentes[idx];
-  data.pessoas.push(Object.assign({}, p, {categoria:'Visitante', status:'Ativo', cursos:[], contribuicoes:[], anotacoes:[]}));
+  data.pessoas.push(Object.assign({}, p, {categoria:'Discípulo', status:'Ativo', cursos:[], contribuicoes:[], anotacoes:[]}));
   data.pendentes.splice(idx,1);
   saveData(); closeSheet(); showToast('Cadastro aprovado.');
 }
