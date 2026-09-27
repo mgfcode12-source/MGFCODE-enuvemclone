@@ -2,195 +2,337 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<title>Letreiro LED</title>
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#050505">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Letreiro LED">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Admin — Letreiro LED</title>
+<meta name="theme-color" content="#FFF8E6">
 <link rel="icon" href="./icon-192.png">
-<link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800&family=VT323&family=Share+Tech+Mono&family=Courier+Prime:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
+  :root{
+    --solare:#FFC400; --lima:#C6F24A; --creme:#FFF8E6; --carvao:#1A1A1A; --neblina:#E6F3FF;
+    --card:#FFFFFF; --line:#EAE1CC; --text-dim:#6B6455;
+  }
   *{box-sizing:border-box;}
-  html,body{height:100%;margin:0;background:#000;overflow:hidden;}
-  #screen{
-    position:fixed; top:50%; left:50%; display:flex; align-items:center; justify-content:center;
-    text-align:center; overflow:hidden; transition:background .5s ease, color .5s ease;
-    font-family:'Share Tech Mono', monospace;
+  html,body{height:100%;margin:0;}
+  body{
+    font-family:'Sora',sans-serif; background:var(--creme); color:var(--carvao);
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+    -webkit-font-smoothing:antialiased;
   }
-  #screenContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap;
-    text-shadow:0 0 .12em currentColor, 0 0 .35em currentColor;
-    filter:drop-shadow(0 0 6px currentColor);
-  }
-  #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
-  #screen.offline #screenContent{opacity:.35;}
+  #admin{max-width:1080px; margin:0 auto; padding:28px 20px 60px;}
 
-  #rotateBtn{
-    position:fixed; bottom:calc(14px + env(safe-area-inset-bottom,0px)); right:calc(14px + env(safe-area-inset-right,0px));
-    z-index:20; width:46px; height:46px; border-radius:50%; border:none;
-    background:rgba(255,255,255,.06); color:#fff; opacity:.16;
-    font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center;
-    transition:opacity .2s ease; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  .topbar{display:flex; align-items:center; gap:12px; margin-bottom:26px;}
+  .logo-dot{width:34px; height:34px; border-radius:10px; flex:none;
+    background:linear-gradient(135deg, var(--solare), var(--lima)); box-shadow:0 3px 0 rgba(26,26,26,.08);}
+  .topbar h1{font-size:19px; font-weight:800; margin:0; letter-spacing:-.01em;}
+  .topbar .sub{font-size:12.5px; color:var(--text-dim); margin-top:1px;}
+
+  .bento{
+    display:grid; gap:14px;
+    grid-template-columns:repeat(12, 1fr);
+    grid-template-areas:
+      "modo modo modo modo cores cores cores cores fonte fonte fonte fonte"
+      "prev prev prev prev prev prev prev status status status status status";
   }
-  #rotateBtn:active{opacity:.55;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:20px;
+    padding:18px; min-width:0;
+  }
+  #cardModo{grid-area:modo;} #cardCores{grid-area:cores;} #cardFonte{grid-area:fonte;}
+  #cardPreview{grid-area:prev;} #cardStatus{grid-area:status;}
+
+  .card h2{font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-dim); margin:0 0 12px;}
+
+  .row{margin-bottom:14px;} .row:last-child{margin-bottom:0;}
+  label{display:block; font-size:12.5px; font-weight:500; color:var(--text-dim); margin-bottom:6px;}
+
+  .seg{display:flex; background:var(--neblina); border-radius:12px; padding:3px; gap:3px;}
+  .seg button{flex:1; padding:9px; background:transparent; border:none; border-radius:9px;
+    font-family:inherit; font-size:13px; font-weight:600; color:var(--carvao); opacity:.55; cursor:pointer;}
+  .seg button.on{background:var(--carvao); color:var(--lima); opacity:1;}
+
+  textarea,select{
+    width:100%; background:var(--creme); border:1px solid var(--line); color:var(--carvao);
+    border-radius:12px; padding:10px 12px; font-family:inherit; font-size:14px; font-weight:500;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  select{appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%231A1A1A'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 14px center;}
+
+  .colorRow{display:flex; gap:10px;} .colorRow > div{flex:1; min-width:0;}
+  input[type=color]{width:100%; height:42px; border:1px solid var(--line); border-radius:12px; background:var(--creme); padding:4px; cursor:pointer;}
+
+  input[type=range]{width:100%; accent-color:var(--carvao);}
+  .rangeVal{color:var(--carvao); font-weight:700; font-size:12px; float:right;}
+
+  .previewWrap{display:flex; justify-content:center;}
+  .previewBox{
+    width:100%; max-width:200px; aspect-ratio:9/19.5; border-radius:26px; padding:5%;
+    text-align:center; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; transition:background .3s,color .3s; border:6px solid var(--carvao); position:relative;
+  }
+  #previewContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap; font-weight:700;}
+  #previewSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
+  .preview-caption{text-align:center; font-size:11px; color:var(--text-dim); margin-top:10px;}
+
+  #saveBtn{width:100%; padding:13px; border:none; border-radius:12px; background:var(--carvao); color:var(--lima);
+    font-weight:700; font-size:14px; font-family:inherit; cursor:pointer; letter-spacing:.01em;}
+  #saveBtn:active{opacity:.85;}
+  #status{text-align:center; font-size:12px; color:var(--text-dim); margin-top:10px; min-height:14px;}
+
+  .linkBox{font-size:12px; color:var(--text-dim); word-break:break-all; background:var(--creme);
+    border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-top:6px;}
+  .hint{font-size:11px; color:var(--text-dim); margin-top:6px;}
+
+  @media (max-width:760px){
+    .bento{grid-template-columns:1fr;
+      grid-template-areas:"modo" "cores" "fonte" "prev" "status";}
+  }
 </style>
 </head>
 <body>
-<div id="screen">
-  <div id="screenContent">
-    <div id="screenMain">--:--:--</div>
-    <div id="screenSub"></div>
+<div id="admin">
+  <div class="topbar">
+    <div class="logo-dot"></div>
+    <div>
+      <h1>Painel do Letreiro</h1>
+      <div class="sub">Configure o que aparece nos celulares conectados</div>
+    </div>
+  </div>
+
+  <div class="bento">
+    <div class="card" id="cardModo">
+      <h2>Conteúdo</h2>
+      <div class="row">
+        <label>Modo</label>
+        <div class="seg" id="modeSeg">
+          <button data-v="clock">Relógio</button>
+          <button data-v="message">Mensagem</button>
+        </div>
+      </div>
+      <div class="row" id="msgRow">
+        <label>Mensagem</label>
+        <textarea id="message" maxlength="200" placeholder="Digite a mensagem…"></textarea>
+      </div>
+      <div class="row" id="durRow">
+        <label>Duração antes de voltar ao relógio <span class="rangeVal" id="durVal"></span></label>
+        <input type="range" id="messageDuration" min="3" max="120" step="1">
+      </div>
+      <div class="row" id="secRow">
+        <label>Relógio</label>
+        <div class="seg" id="secSeg">
+          <button data-v="1">Com segundos</button>
+          <button data-v="0">Sem segundos</button>
+        </div>
+      </div>
+      <div class="row" id="oriRow">
+        <label>Orientação da tela (nos aparelhos)</label>
+        <div class="seg" id="oriSeg">
+          <button data-v="auto">Automático</button>
+          <button data-v="portrait">Vertical</button>
+          <button data-v="landscape">Horizontal</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="cardCores">
+      <h2>Cores</h2>
+      <div class="row colorRow">
+        <div><label>Fundo</label><input type="color" id="bgColor"></div>
+        <div><label>Fonte</label><input type="color" id="fontColor"></div>
+      </div>
+    </div>
+
+    <div class="card" id="cardFonte">
+      <h2>Tipografia</h2>
+      <div class="row">
+        <label>Fonte</label>
+        <select id="fontFamily">
+          <option value="'Orbitron', sans-serif">Orbitron (display)</option>
+          <option value="'VT323', monospace">VT323 (pixel/LED)</option>
+          <option value="'Share Tech Mono', monospace">Share Tech Mono</option>
+          <option value="'Courier Prime', monospace">Courier Prime</option>
+          <option value="Arial, sans-serif">Arial</option>
+          <option value="Georgia, serif">Georgia</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Tamanho <span class="rangeVal" id="sizeVal"></span></label>
+        <input type="range" id="fontSize" min="50" max="100" step="5">
+      </div>
+    </div>
+
+    <div class="card" id="cardPreview">
+      <h2>Prévia</h2>
+      <div class="previewWrap">
+        <div class="previewBox" id="preview">
+          <div id="previewContent">
+            <div id="previewMain"></div>
+            <div id="previewSub"></div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-caption">Reflete o tamanho real no aparelho conectado</div>
+    </div>
+
+    <div class="card" id="cardStatus">
+      <h2>Aplicar</h2>
+      <button id="saveBtn">Aplicar nas telas</button>
+      <div id="status"></div>
+      <div class="row" style="margin-top:14px;">
+        <label>Link do letreiro</label>
+        <div class="linkBox" id="displayLink"></div>
+        <div class="hint">Abra esse link nos celulares que serão a tela.</div>
+      </div>
+    </div>
   </div>
 </div>
-<button id="rotateBtn" aria-label="Girar tela" title="Girar tela">⟳</button>
 
 <script>
-/* ===== CONFIGURAÇÃO DO SUPABASE (mesmo projeto do Cloud MGF) ===== */
 const SUPABASE_URL = 'https://qwqfmbojxcorupydfgsh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWZtYm9qeGNvcnVweWRmZ3NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NTA4OTgsImV4cCI6MjEwMjMyNjg5OH0.M21WgJZcjzfyhw81Z1Jwh-UyloUha1z8urtPN6qnZPk';
 const TABLE = 'letreiro_config';
 const ROW_ID = 'main';
-
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DEFAULT_CONFIG = {
-  mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
-  font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
-  updated_at: null
+  mode: 'clock', message: 'Bem-vindo!', bgColor: '#050505', fontColor: '#39ff88',
+  fontFamily: "'Orbitron', sans-serif", fontSize: 100, messageDuration: 15, showSeconds: true,
+  orientation: 'auto'
 };
 
-const screenEl = document.getElementById('screen');
-const content = document.getElementById('screenContent');
-const main = document.getElementById('screenMain');
-const sub = document.getElementById('screenSub');
+const el = id => document.getElementById(id);
+const state = Object.assign({}, DEFAULT_CONFIG);
+let saveTimer = null;
+let suppressRemote = false;
 
-let clockTimer = null, revertTimer = null, currentCfg = DEFAULT_CONFIG;
-
-/* ===== AJUSTE AUTOMÁTICO: o texto sempre ocupa a tela inteira ===== */
+/* ===== Mesmo motor de ajuste automático do index.html — a prévia calcula
+   o tamanho exatamente como o letreiro real faria, dentro do formato de celular ===== */
 const measureCanvas = document.createElement('canvas');
 const measureCtx = measureCanvas.getContext('2d');
-
 function widestLineWidth(text, fontPx, fontFamily){
   measureCtx.font = `700 ${fontPx}px ${fontFamily}`;
   const lines = String(text || ' ').split('\n');
   return Math.max(...lines.map(l => measureCtx.measureText(l || ' ').width), 1);
 }
-
-function fitDisplay(){
-  const family = currentCfg.font_family;
-  const hasSub = !!sub.textContent;
-  const innerW = screenEl.clientWidth * 0.9;
-  const innerH = screenEl.clientHeight * 0.86;
-  const lineCount = String(main.textContent || ' ').split('\n').length;
+function fitPreviewText(){
+  const box = el('preview');
+  const mainEl = el('previewMain');
+  const hasSub = !!el('previewSub').textContent;
+  const innerW = box.clientWidth * 0.9;
+  const innerH = box.clientHeight * 0.86;
+  const lineCount = String(mainEl.textContent || ' ').split('\n').length;
 
   const REF = 200;
-  const refW = widestLineWidth(main.textContent, REF, family);
+  const refW = widestLineWidth(mainEl.textContent, REF, state.fontFamily);
   const sizeByWidth = (innerW / refW) * REF;
-
   const lineHeightFactor = 1.15 * lineCount;
-  const subFactor = hasSub ? 0.62 : 0; // espaço extra da linha de data/sub
+  const subFactor = hasSub ? 0.62 : 0;
   const sizeByHeight = innerH / (lineHeightFactor + subFactor);
 
-  const scale = (currentCfg.font_size || 100) / 100;
-  const fontPx = Math.max(14, Math.min(sizeByWidth, sizeByHeight) * scale);
-
-  content.style.fontSize = fontPx + 'px';
+  const scale = (state.fontSize || 100) / 100;
+  const fontPx = Math.max(6, Math.min(sizeByWidth, sizeByHeight) * scale);
+  el('previewContent').style.fontSize = fontPx + 'px';
 }
 
-function styleScreen(cfg){
-  screenEl.style.background = cfg.bg_color;
-  screenEl.style.color = cfg.font_color;
-  screenEl.style.fontFamily = cfg.font_family;
-}
+el('displayLink').textContent = location.origin + location.pathname.replace(/admin\.html$/, 'index.html');
 
-function tickClock(){
-  const now = new Date();
-  const opts = currentCfg.show_seconds
-    ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
-    : {hour:'2-digit',minute:'2-digit',hour12:false};
-  main.textContent = now.toLocaleTimeString('pt-BR', opts);
-  sub.textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
-  fitDisplay();
+function setSeg(container, value){
+  container.querySelectorAll('button').forEach(b=> b.classList.toggle('on', b.dataset.v === String(value)));
 }
-
-function showClock(){
-  clearInterval(clockTimer);
-  tickClock();
-  clockTimer = setInterval(tickClock, 1000);
+function refreshRowVisibility(){
+  el('msgRow').style.display = state.mode === 'message' ? '' : 'none';
+  el('durRow').style.display = state.mode === 'message' ? '' : 'none';
+  el('secRow').style.display = state.mode === 'clock' ? '' : 'none';
 }
-
-function showMessage(text){
-  clearInterval(clockTimer);
-  sub.textContent = '';
-  main.textContent = text || '';
-  fitDisplay();
+function renderForm(){
+  setSeg(el('modeSeg'), state.mode);
+  el('message').value = state.message;
+  el('messageDuration').value = state.messageDuration;
+  el('durVal').textContent = state.messageDuration + 's';
+  setSeg(el('secSeg'), state.showSeconds ? '1' : '0');
+  setSeg(el('oriSeg'), state.orientation || 'auto');
+  el('bgColor').value = state.bgColor;
+  el('fontColor').value = state.fontColor;
+  el('fontFamily').value = state.fontFamily;
+  el('fontSize').value = state.fontSize;
+  el('sizeVal').textContent = state.fontSize + '%';
+  refreshRowVisibility();
+  renderPreview();
 }
-
-function applyConfig(cfg){
-  currentCfg = cfg;
-  styleScreen(cfg);
-  clearTimeout(revertTimer);
-  if(cfg.mode === 'message'){
-    showMessage(cfg.message);
-    const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
-    const elapsedSec = (Date.now() - updatedAt) / 1000;
-    const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
-    revertTimer = setTimeout(showClock, remaining * 1000);
+function renderPreview(){
+  const box = el('preview');
+  box.style.background = state.bgColor;
+  box.style.color = state.fontColor;
+  box.style.fontFamily = state.fontFamily;
+  if(state.mode === 'message'){
+    el('previewMain').textContent = state.message || ' ';
+    el('previewSub').textContent = '';
   } else {
-    showClock();
+    const now = new Date();
+    el('previewMain').textContent = now.toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
+    el('previewSub').textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
   }
+  fitPreviewText();
+}
+window.addEventListener('resize', ()=> fitPreviewText());
+function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 450); }
+
+function toRow(s){
+  return {
+    id: ROW_ID, mode: s.mode, message: s.message, bg_color: s.bgColor, font_color: s.fontColor,
+    font_family: s.fontFamily, font_size: s.fontSize, message_duration: s.messageDuration,
+    show_seconds: s.showSeconds, orientation: s.orientation, updated_at: new Date().toISOString()
+  };
+}
+function fromRow(r){
+  return {
+    mode: r.mode, message: r.message, bgColor: r.bg_color, fontColor: r.font_color,
+    fontFamily: r.font_family, fontSize: Math.min(r.font_size || 100, 100), messageDuration: r.message_duration,
+    showSeconds: r.show_seconds, orientation: r.orientation || 'auto'
+  };
 }
 
-applyConfig(DEFAULT_CONFIG);
+async function commit(){
+  suppressRemote = true;
+  const {error} = await sb.from(TABLE).upsert(toRow(state));
+  el('status').textContent = error ? 'Falha ao salvar — tente novamente.' : 'Aplicado ✓ ' + new Date().toLocaleTimeString('pt-BR');
+  setTimeout(()=>{ suppressRemote = false; }, 800);
+}
+
+el('modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.mode=b.dataset.v; renderForm(); commit(); });
+el('secSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.showSeconds = b.dataset.v==='1'; renderForm(); scheduleSave(); });
+el('oriSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.orientation = b.dataset.v; renderForm(); commit(); });
+el('message').addEventListener('input', e=>{ state.message = e.target.value; renderPreview(); scheduleSave(); });
+el('messageDuration').addEventListener('input', e=>{ state.messageDuration = Number(e.target.value); el('durVal').textContent = state.messageDuration+'s'; scheduleSave(); });
+el('bgColor').addEventListener('input', e=>{ state.bgColor = e.target.value; renderPreview(); scheduleSave(); });
+el('fontColor').addEventListener('input', e=>{ state.fontColor = e.target.value; renderPreview(); scheduleSave(); });
+el('fontFamily').addEventListener('change', e=>{ state.fontFamily = e.target.value; renderPreview(); commit(); });
+el('fontSize').addEventListener('input', e=>{ state.fontSize = Number(e.target.value); el('sizeVal').textContent = state.fontSize+'%'; renderPreview(); scheduleSave(); });
+el('saveBtn').addEventListener('click', commit);
+setInterval(()=>{ if(state.mode==='clock') renderPreview(); }, 1000);
+
+renderForm();
 
 async function loadInitial(){
-  const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
-  if(error || !data){ screenEl.classList.add('offline'); return; }
-  applyConfig(Object.assign({}, DEFAULT_CONFIG, data));
+  const {data} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
+  if(data){ Object.assign(state, fromRow(data)); renderForm(); }
 }
-
 function subscribeRealtime(){
-  sb.channel('letreiro-display')
+  sb.channel('letreiro-admin')
     .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, (payload)=>{
-      if(payload.new) applyConfig(Object.assign({}, DEFAULT_CONFIG, payload.new));
+      if(suppressRemote || !payload.new) return;
+      Object.assign(state, fromRow(payload.new)); renderForm();
     })
-    .subscribe((status)=>{
-      if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') screenEl.classList.add('offline');
-      if(status === 'SUBSCRIBED') screenEl.classList.remove('offline');
-    });
+    .subscribe();
 }
-
 loadInitial();
 subscribeRealtime();
-// checagem de respaldo a cada 1s — garante que não passe de 1s de atraso mesmo se o realtime falhar
-setInterval(loadInitial, 1000);
-
-/* ===== ROTAÇÃO (por aparelho, fica salva neste celular) ===== */
-const ROT_KEY = 'letreiroRotationDeg';
-let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
-
-function applyRotation(){
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const swapped = (rotation === 90 || rotation === 270);
-  screenEl.style.width = (swapped ? vh : vw) + 'px';
-  screenEl.style.height = (swapped ? vw : vh) + 'px';
-  screenEl.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
-  fitDisplay();
-}
-
-document.getElementById('rotateBtn').addEventListener('click', ()=>{
-  rotation = (rotation + 90) % 360;
-  localStorage.setItem(ROT_KEY, rotation);
-  applyRotation();
-});
-window.addEventListener('resize', applyRotation);
-applyRotation();
 </script>
 </body>
 </html>
