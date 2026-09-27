@@ -21,6 +21,7 @@
   html,body{height:100%;margin:0;background:#000;overflow:hidden;}
   #screen{
     position:fixed; top:50%; left:50%;
+    width:100vw; height:100vh;
     display:flex; align-items:center; justify-content:center;
     text-align:center; overflow:hidden;
     padding:0; margin:0;
@@ -90,27 +91,17 @@ function widestLineWidth(text, fontPx, fontFamily){
 
 function fitDisplay(){
   const family = currentCfg.font_family;
-  const hasSub = !!sub.textContent;
-  // Em 90°/270°, largura e altura do elemento ficam trocadas pelo CSS.
-  // O cálculo precisa usar as dimensões VISUAIS para manter o texto centralizado.
-  const rotated = (rotation === 90 || rotation === 270);
-  const visualW = rotated ? screenEl.clientHeight : screenEl.clientWidth;
-  const visualH = rotated ? screenEl.clientWidth : screenEl.clientHeight;
-  const innerW = visualW * 0.9;
-  const innerH = visualH * 0.86;
+  const innerW = screenEl.clientWidth * 0.92;
+  const innerH = screenEl.clientHeight * 0.82;
   const lineCount = String(main.textContent || ' ').split('\n').length;
 
   const REF = 200;
   const refW = widestLineWidth(main.textContent, REF, family);
   const sizeByWidth = (innerW / refW) * REF;
-
-  const lineHeightFactor = 1.15 * lineCount;
-  const subFactor = hasSub ? 0.62 : 0; // espaço extra da linha de data/sub
-  const sizeByHeight = innerH / (lineHeightFactor + subFactor);
+  const sizeByHeight = innerH / (1.15 * lineCount);
 
   const scale = (currentCfg.font_size || 100) / 100;
   const fontPx = Math.max(14, Math.min(sizeByWidth, sizeByHeight) * scale);
-
   content.style.fontSize = fontPx + 'px';
 }
 
@@ -121,10 +112,10 @@ let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
 
 function applyRotation(){
   const vw = window.innerWidth, vh = window.innerHeight;
-  const swapped = (rotation === 90 || rotation === 270);
-  screenEl.style.width = (swapped ? vh : vw) + 'px';
-  screenEl.style.height = (swapped ? vw : vh) + 'px';
-  screenEl.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+  rotation = 0;
+  screenEl.style.width = vw + 'px';
+  screenEl.style.height = vh + 'px';
+  screenEl.style.transform = 'translate(-50%, -50%)';
   refitCurrent();
 }
 
@@ -132,11 +123,11 @@ function applyRotation(){
 // todos os aparelhos e o botão manual fica escondido. Em "Automático" cada
 // celular guarda sua própria rotação (botão ⟳ continua disponível).
 function syncOrientation(cfg){
-  const forced = cfg.orientation === 'landscape' || cfg.orientation === 'portrait';
-  if(cfg.orientation === 'landscape') rotation = 90;
-  else if(cfg.orientation === 'portrait') rotation = 0;
-  localStorage.setItem(ROT_KEY, rotation);
-  rotateBtn.style.display = forced ? 'none' : 'flex';
+  // O letreiro deve permanecer sempre na posição HORIZONTAL.
+  // Não aplicar rotação de 90°/270° ao conteúdo.
+  rotation = 0;
+  localStorage.setItem(ROT_KEY, '0');
+  rotateBtn.style.display = 'none';
   applyRotation();
 }
 
@@ -159,7 +150,7 @@ function tickClock(){
     ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
     : {hour:'2-digit',minute:'2-digit',hour12:false};
   main.textContent = now.toLocaleTimeString('pt-BR', opts);
-  sub.textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+  sub.textContent = '';
   fitDisplay();
 }
 
