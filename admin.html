@@ -31,19 +31,14 @@
   .topbar h1{font-size:19px; font-weight:800; margin:0; letter-spacing:-.01em;}
   .topbar .sub{font-size:12.5px; color:var(--text-dim); margin-top:1px;}
 
-  .bento{
-    display:grid; gap:14px;
-    grid-template-columns:repeat(12, 1fr);
-    grid-template-areas:
-      "modo modo modo modo cores cores cores cores fonte fonte fonte fonte"
-      "prev prev prev prev prev prev prev status status status status status";
-  }
+  .bento{display:grid; gap:14px; grid-template-columns:repeat(12, 1fr);}
   .card{
     background:var(--card); border:1px solid var(--line); border-radius:20px;
     padding:18px; min-width:0;
   }
-  #cardModo{grid-area:modo;} #cardCores{grid-area:cores;} #cardFonte{grid-area:fonte;}
-  #cardPreview{grid-area:prev;} #cardStatus{grid-area:status;}
+  #cardModo{grid-column:span 4;} #cardCores{grid-column:span 4;} #cardFonte{grid-column:span 4;}
+  #cardPresets{grid-column:span 12;} #cardSchedule{grid-column:span 12;}
+  #cardPreview{grid-column:span 7;} #cardStatus{grid-column:span 5;}
 
   .card h2{font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
     color:var(--text-dim); margin:0 0 12px;}
@@ -58,7 +53,7 @@
   .seg.wrap button{flex:1 1 30%; min-width:80px;}
   .seg button.on{background:var(--carvao); color:var(--lima); opacity:1;}
 
-  textarea,select{
+  textarea,select,input[type=text],input[type=time]{
     width:100%; background:var(--creme); border:1px solid var(--line); color:var(--carvao);
     border-radius:12px; padding:10px 12px; font-family:inherit; font-size:14px; font-weight:500;
   }
@@ -71,6 +66,30 @@
 
   input[type=range]{width:100%; accent-color:var(--carvao);}
   .rangeVal{color:var(--carvao); font-weight:700; font-size:12px; float:right;}
+
+  .paletteRow{display:flex; gap:8px; flex-wrap:wrap;}
+  .swatch{width:38px; height:38px; border-radius:10px; border:2px solid var(--line); cursor:pointer; padding:0;}
+  .swatch:active{transform:scale(.92);}
+
+  .chipRow{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip{display:flex; align-items:center; gap:6px; background:var(--neblina); border-radius:999px;
+    padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; border:none; font-family:inherit; color:var(--carvao);}
+  .chip:active{opacity:.7;}
+  .chip .x{opacity:.5; font-weight:800; padding-left:2px;}
+  .addPresetRow{display:flex; gap:8px;}
+  .addPresetRow input{flex:1;}
+  .addPresetRow button, .addSchedRow button{padding:9px 16px; border:none; border-radius:12px;
+    background:var(--carvao); color:var(--lima); font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap;}
+
+  .schedItem{display:flex; align-items:center; gap:10px; background:var(--creme); border:1px solid var(--line);
+    border-radius:12px; padding:9px 12px; margin-bottom:8px;}
+  .schedItem .time{font-weight:800; min-width:52px;}
+  .schedItem .desc{flex:1; font-size:13px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .schedItem .del{background:none; border:none; color:var(--text-dim); font-size:16px; cursor:pointer; font-weight:800; padding:0 4px;}
+  .addSchedRow{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .addSchedRow input[type=time]{flex:0 0 110px;}
+  .addSchedRow select{flex:0 0 130px; padding:9px 12px;}
+  .addSchedRow input[type=text]{flex:1; min-width:160px;}
 
   .previewWrap{display:flex; justify-content:center;}
   .previewBox{
@@ -90,10 +109,11 @@
   .linkBox{font-size:12px; color:var(--text-dim); word-break:break-all; background:var(--creme);
     border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-top:6px;}
   .hint{font-size:11px; color:var(--text-dim); margin-top:6px;}
+  .qrWrap{text-align:center;}
+  #qrImg{width:140px; height:140px; border-radius:10px; border:1px solid var(--line); background:#fff; padding:6px;}
 
   @media (max-width:760px){
-    .bento{grid-template-columns:1fr;
-      grid-template-areas:"modo" "cores" "fonte" "prev" "status";}
+    .card{grid-column:span 12 !important;}
   }
 </style>
 </head>
@@ -129,10 +149,12 @@
         <label>Animação da mensagem</label>
         <div class="seg wrap" id="animSeg">
           <button data-v="none">Estático</button>
-          <button data-v="scroll-left">← Passa pra esquerda</button>
-          <button data-v="scroll-right">→ Passa pra direita</button>
+          <button data-v="scroll-left">← Esquerda</button>
+          <button data-v="scroll-right">→ Direita</button>
           <button data-v="drop">↓ Desce</button>
           <button data-v="rise">↑ Sobe</button>
+          <button data-v="fade">◐ Aparece/some</button>
+          <button data-v="blink">✦ Pisca</button>
         </div>
       </div>
       <div class="row" id="secRow">
@@ -157,6 +179,10 @@
       <div class="row colorRow">
         <div><label>Fundo</label><input type="color" id="bgColor"></div>
         <div><label>Fonte</label><input type="color" id="fontColor"></div>
+      </div>
+      <div class="row">
+        <label>Paletas prontas</label>
+        <div class="paletteRow" id="paletteRow"></div>
       </div>
       <div class="row">
         <label>Estilo do texto</label>
@@ -186,6 +212,40 @@
       </div>
     </div>
 
+    <div class="card" id="cardPresets">
+      <h2>Pré-ajustes de mensagem</h2>
+      <div class="row">
+        <div class="chipRow" id="presetChips"></div>
+      </div>
+      <div class="row addPresetRow">
+        <input type="text" id="newPresetText" placeholder="Nova mensagem para salvar como pré-ajuste…" maxlength="200">
+        <button id="addPresetBtn">Salvar</button>
+      </div>
+      <div class="hint">Toque num pré-ajuste pra aplicar na hora nas telas. Toque no × pra remover (fica salvo neste navegador).</div>
+    </div>
+
+    <div class="card" id="cardSchedule">
+      <h2>Agendamento por horário</h2>
+      <div class="row">
+        <label>Ativar agendamento</label>
+        <div class="seg" id="schedEnabledSeg" style="max-width:220px;">
+          <button data-v="0">Desligado</button>
+          <button data-v="1">Ligado</button>
+        </div>
+      </div>
+      <div class="row" id="schedRows"></div>
+      <div class="row addSchedRow">
+        <input type="time" id="newSchedTime" value="08:00">
+        <select id="newSchedMode">
+          <option value="clock">Relógio</option>
+          <option value="message">Mensagem</option>
+        </select>
+        <input type="text" id="newSchedMsg" placeholder="Mensagem para esse horário…" maxlength="200">
+        <button id="addSchedBtn">+ Adicionar</button>
+      </div>
+      <div class="hint">A tela troca sozinha no horário definido e mantém até o próximo horário da lista.</div>
+    </div>
+
     <div class="card" id="cardPreview">
       <h2>Prévia</h2>
       <div class="previewWrap">
@@ -208,6 +268,10 @@
         <div class="linkBox" id="displayLink"></div>
         <div class="hint">Abra esse link nos celulares que serão a tela.</div>
       </div>
+      <div class="row qrWrap">
+        <label>QR code (pra configurar um celular novo)</label>
+        <img id="qrImg" alt="QR code do link do letreiro">
+      </div>
     </div>
   </div>
 </div>
@@ -222,11 +286,12 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bgColor: '#050505', fontColor: '#39ff88',
   fontFamily: "'Orbitron', sans-serif", fontSize: 100, messageDuration: 15, showSeconds: true,
-  orientation: 'auto', messageAnim: 'none', glow: false
+  orientation: 'auto', messageAnim: 'none', glow: false,
+  scheduleEnabled: false, schedule: []
 };
 
 const el = id => document.getElementById(id);
-const state = Object.assign({}, DEFAULT_CONFIG);
+const state = Object.assign({}, DEFAULT_CONFIG, {schedule: []});
 let saveTimer = null;
 let suppressRemote = false;
 
@@ -259,7 +324,9 @@ function fitPreviewText(){
   el('previewContent').style.fontSize = fontPx + 'px';
 }
 
-el('displayLink').textContent = location.origin + location.pathname.replace(/admin\.html$/, 'index.html');
+const displayLinkURL = location.origin + location.pathname.replace(/admin\.html$/, 'index.html');
+el('displayLink').textContent = displayLinkURL;
+el('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=' + encodeURIComponent(displayLinkURL);
 
 function setSeg(container, value){
   container.querySelectorAll('button').forEach(b=> b.classList.toggle('on', b.dataset.v === String(value)));
@@ -285,6 +352,7 @@ function renderForm(){
   el('fontSize').value = state.fontSize;
   el('sizeVal').textContent = state.fontSize + '%';
   refreshRowVisibility();
+  renderSchedule();
   renderPreview();
 }
 function renderPreview(){
@@ -305,12 +373,141 @@ function renderPreview(){
 window.addEventListener('resize', ()=> fitPreviewText());
 function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 450); }
 
+/* ===== Paletas de cores prontas ===== */
+const PALETTES = [
+  {bg:'#050505', font:'#39ff88', label:'Verde clássico'},
+  {bg:'#0a0000', font:'#ff3b3b', label:'Vermelho'},
+  {bg:'#0a0600', font:'#ffb000', label:'Âmbar'},
+  {bg:'#00050a', font:'#33aaff', label:'Azul'},
+  {bg:'#050505', font:'#ffffff', label:'Branco'},
+  {bg:'#0a0008', font:'#ff4fd8', label:'Rosa'}
+];
+function renderPalettes(){
+  const wrap = el('paletteRow');
+  wrap.innerHTML = '';
+  PALETTES.forEach(p=>{
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'swatch'; b.title = p.label;
+    b.style.background = p.bg;
+    b.style.boxShadow = `inset 0 0 0 3px ${p.font}`;
+    b.addEventListener('click', ()=>{
+      state.bgColor = p.bg; state.fontColor = p.font;
+      renderForm(); commit();
+    });
+    wrap.appendChild(b);
+  });
+}
+renderPalettes();
+
+/* ===== Pré-ajustes de mensagem (salvos neste navegador) ===== */
+const PRESET_KEY = 'letreiroPresets';
+const DEFAULT_PRESETS = ['Bem-vindo!', 'Voltamos já', 'Fechado para o almoço', 'Aberto agora', 'Promoção especial hoje!'];
+function loadPresets(){
+  try{
+    const raw = localStorage.getItem(PRESET_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return DEFAULT_PRESETS.slice();
+}
+function savePresetsToStorage(){ localStorage.setItem(PRESET_KEY, JSON.stringify(presets)); }
+let presets = loadPresets();
+function renderPresets(){
+  const wrap = el('presetChips');
+  wrap.innerHTML = '';
+  presets.forEach((text, i)=>{
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    const label = document.createElement('span');
+    label.textContent = text.length > 30 ? text.slice(0, 30) + '…' : text;
+    const x = document.createElement('span');
+    x.className = 'x';
+    x.textContent = '×';
+    x.dataset.i = i;
+    chip.appendChild(label);
+    chip.appendChild(x);
+    chip.addEventListener('click', (e)=>{
+      if(e.target === x){
+        presets.splice(i, 1);
+        savePresetsToStorage();
+        renderPresets();
+        return;
+      }
+      state.mode = 'message';
+      state.message = text;
+      renderForm();
+      commit();
+    });
+    wrap.appendChild(chip);
+  });
+}
+renderPresets();
+el('addPresetBtn').addEventListener('click', ()=>{
+  const val = el('newPresetText').value.trim();
+  if(!val) return;
+  presets.push(val);
+  savePresetsToStorage();
+  el('newPresetText').value = '';
+  renderPresets();
+});
+
+/* ===== Agendamento por horário ===== */
+function renderSchedule(){
+  setSeg(el('schedEnabledSeg'), state.scheduleEnabled ? '1' : '0');
+  const wrap = el('schedRows');
+  wrap.innerHTML = '';
+  const sorted = state.schedule.slice().sort((a, b)=> a.time.localeCompare(b.time));
+  if(sorted.length === 0){
+    wrap.innerHTML = '<div class="hint">Nenhum horário programado ainda.</div>';
+    return;
+  }
+  sorted.forEach(item=>{
+    const realIndex = state.schedule.indexOf(item);
+    const row = document.createElement('div');
+    row.className = 'schedItem';
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'time'; timeSpan.textContent = item.time;
+    const descSpan = document.createElement('span');
+    descSpan.className = 'desc';
+    descSpan.textContent = item.mode === 'message' ? ('Mensagem: ' + (item.message || '')) : 'Volta ao relógio';
+    const del = document.createElement('button');
+    del.className = 'del'; del.textContent = '×';
+    del.addEventListener('click', ()=>{
+      state.schedule.splice(realIndex, 1);
+      renderSchedule();
+      commit();
+    });
+    row.appendChild(timeSpan); row.appendChild(descSpan); row.appendChild(del);
+    wrap.appendChild(row);
+  });
+}
+el('schedEnabledSeg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  state.scheduleEnabled = b.dataset.v === '1';
+  renderSchedule(); commit();
+});
+el('newSchedMode').addEventListener('change', ()=>{
+  el('newSchedMsg').style.display = el('newSchedMode').value === 'message' ? '' : 'none';
+});
+el('newSchedMode').dispatchEvent(new Event('change'));
+el('addSchedBtn').addEventListener('click', ()=>{
+  const time = el('newSchedTime').value || '08:00';
+  const mode = el('newSchedMode').value;
+  const message = el('newSchedMsg').value.trim();
+  if(mode === 'message' && !message){ el('newSchedMsg').focus(); return; }
+  state.schedule.push({time, mode, message});
+  el('newSchedMsg').value = '';
+  renderSchedule();
+  commit();
+});
+
 function toRow(s){
   return {
     id: ROW_ID, mode: s.mode, message: s.message, bg_color: s.bgColor, font_color: s.fontColor,
     font_family: s.fontFamily, font_size: s.fontSize, message_duration: s.messageDuration,
     show_seconds: s.showSeconds, orientation: s.orientation, message_anim: s.messageAnim,
-    glow: s.glow, updated_at: new Date().toISOString()
+    glow: s.glow, schedule_enabled: s.scheduleEnabled, schedule: s.schedule,
+    updated_at: new Date().toISOString()
   };
 }
 function fromRow(r){
@@ -318,7 +515,8 @@ function fromRow(r){
     mode: r.mode, message: r.message, bgColor: r.bg_color, fontColor: r.font_color,
     fontFamily: r.font_family, fontSize: Math.min(r.font_size || 100, 100), messageDuration: r.message_duration,
     showSeconds: r.show_seconds, orientation: r.orientation || 'auto',
-    messageAnim: r.message_anim || 'none', glow: !!r.glow
+    messageAnim: r.message_anim || 'none', glow: !!r.glow,
+    scheduleEnabled: !!r.schedule_enabled, schedule: Array.isArray(r.schedule) ? r.schedule : []
   };
 }
 
