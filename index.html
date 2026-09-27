@@ -24,10 +24,7 @@
     text-align:center; overflow:hidden; transition:background .5s ease, color .5s ease;
     font-family:'Share Tech Mono', monospace;
   }
-  #screenContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap;
-    text-shadow:0 0 .12em currentColor, 0 0 .35em currentColor;
-    filter:drop-shadow(0 0 6px currentColor);
-  }
+  #screenContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap;}
   #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
   #screen.offline #screenContent{opacity:.35;}
 
@@ -62,7 +59,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
   font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
-  orientation: 'auto', updated_at: null
+  orientation: 'auto', message_anim: 'none', glow: false, updated_at: null
 };
 
 const screenEl = document.getElementById('screen');
@@ -114,7 +111,7 @@ function applyRotation(){
   screenEl.style.width = (swapped ? vh : vw) + 'px';
   screenEl.style.height = (swapped ? vw : vh) + 'px';
   screenEl.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
-  fitDisplay();
+  refitCurrent();
 }
 
 // Se o admin definir uma orientação fixa (vertical/horizontal), ela vale para
@@ -133,6 +130,13 @@ function styleScreen(cfg){
   screenEl.style.background = cfg.bg_color;
   screenEl.style.color = cfg.font_color;
   screenEl.style.fontFamily = cfg.font_family;
+  if(cfg.glow){
+    content.style.textShadow = '0 0 .08em currentColor, 0 0 .22em currentColor';
+    content.style.filter = 'drop-shadow(0 0 3px currentColor)';
+  } else {
+    content.style.textShadow = 'none';
+    content.style.filter = 'none';
+  }
 }
 
 function tickClock(){
@@ -145,17 +149,94 @@ function tickClock(){
   fitDisplay();
 }
 
+let activeAnim = null;
+function stopAnim(){
+  if(activeAnim){ activeAnim.cancel(); activeAnim = null; }
+  content.style.position = '';
+  content.style.top = '';
+  content.style.left = '';
+  content.style.width = '';
+  content.style.whiteSpace = '';
+  content.style.transform = '';
+}
+
 function showClock(){
+  stopAnim();
   clearInterval(clockTimer);
   tickClock();
   clockTimer = setInterval(tickClock, 1000);
 }
 
-function showMessage(text){
+function playScroll(direction){
+  const family = currentCfg.font_family;
+  const innerH = screenEl.clientHeight * 0.8;
+  const scale = (currentCfg.font_size || 100) / 100;
+  const fontPx = Math.max(14, (innerH / 1.15) * scale);
+  content.style.fontSize = fontPx + 'px';
+  content.style.whiteSpace = 'nowrap';
+  content.style.position = 'absolute';
+  content.style.top = '50%';
+  content.style.left = '0';
+  content.style.width = 'max-content';
+
+  const textWidth = widestLineWidth(main.textContent, fontPx, family);
+  const screenW = screenEl.clientWidth;
+  const distance = textWidth + screenW;
+  const speedPxPerSec = 130;
+  const duration = Math.max(4000, (distance / speedPxPerSec) * 1000);
+
+  const startX = direction === 'scroll-left' ? screenW : -textWidth;
+  const endX = direction === 'scroll-left' ? -textWidth : screenW;
+
+  activeAnim = content.animate(
+    [
+      {transform: `translateY(-50%) translateX(${startX}px)`},
+      {transform: `translateY(-50%) translateX(${endX}px)`}
+    ],
+    {duration, iterations: Infinity, easing: 'linear'}
+  );
+}
+
+function playVertical(direction){
+  fitDisplay();
+  content.style.position = 'relative';
+  const travel = screenEl.clientHeight * 0.65;
+  const from = direction === 'drop' ? -travel : travel;
+  activeAnim = content.animate(
+    [
+      {transform: `translateY(${from}px)`, opacity: 0, offset: 0},
+      {transform: 'translateY(0px)', opacity: 1, offset: 0.2},
+      {transform: 'translateY(0px)', opacity: 1, offset: 0.8},
+      {transform: `translateY(${-from}px)`, opacity: 0, offset: 1}
+    ],
+    {duration: 5000, iterations: Infinity, easing: 'ease-in-out'}
+  );
+}
+
+function refitCurrent(){
+  const anim = currentCfg.mode === 'message' ? currentCfg.message_anim : null;
+  if(anim === 'scroll-left' || anim === 'scroll-right'){
+    playScroll(anim);
+  } else if(anim === 'drop' || anim === 'rise'){
+    playVertical(anim);
+  } else {
+    fitDisplay();
+  }
+}
+
+function showMessage(text, anim){
   clearInterval(clockTimer);
+  stopAnim();
   sub.textContent = '';
   main.textContent = text || '';
-  fitDisplay();
+
+  if(anim === 'scroll-left' || anim === 'scroll-right'){
+    playScroll(anim);
+  } else if(anim === 'drop' || anim === 'rise'){
+    playVertical(anim);
+  } else {
+    fitDisplay();
+  }
 }
 
 function applyConfig(cfg){
@@ -164,7 +245,7 @@ function applyConfig(cfg){
   syncOrientation(cfg);
   clearTimeout(revertTimer);
   if(cfg.mode === 'message'){
-    showMessage(cfg.message);
+    showMessage(cfg.message, cfg.message_anim);
     const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
     const elapsedSec = (Date.now() - updatedAt) / 1000;
     const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
@@ -176,16 +257,30 @@ function applyConfig(cfg){
 
 applyConfig(DEFAULT_CONFIG);
 
+
+let lastConfigKey = null;
+function configKey(cfg){ return JSON.stringify(cfg); }
+
 async function loadInitial(){
   const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
   if(error || !data){ screenEl.classList.add('offline'); return; }
-  applyConfig(Object.assign({}, DEFAULT_CONFIG, data));
+  screenEl.classList.remove('offline');
+  const merged = Object.assign({}, DEFAULT_CONFIG, data);
+  const key = configKey(merged);
+  if(key === lastConfigKey) return; // nada mudou — não reinicia a animação em andamento
+  lastConfigKey = key;
+  applyConfig(merged);
 }
 
 function subscribeRealtime(){
   sb.channel('letreiro-display')
     .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, (payload)=>{
-      if(payload.new) applyConfig(Object.assign({}, DEFAULT_CONFIG, payload.new));
+      if(!payload.new) return;
+      const merged = Object.assign({}, DEFAULT_CONFIG, payload.new);
+      const key = configKey(merged);
+      if(key === lastConfigKey) return;
+      lastConfigKey = key;
+      applyConfig(merged);
     })
     .subscribe((status)=>{
       if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') screenEl.classList.add('offline');
