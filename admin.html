@@ -4,106 +4,169 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Admin — Letreiro LED</title>
-<meta name="theme-color" content="#15171c">
+<meta name="theme-color" content="#FFF8E6">
 <link rel="icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800&family=VT323&family=Share+Tech+Mono&family=Courier+Prime:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
-  :root{--panel-bg:#15171c;--panel-bg-2:#1c1f26;--line:#2a2e37;--text:#eef0f3;--text-dim:#9aa2b1;--accent:#39ff88;}
+  :root{
+    --solare:#FFC400; --lima:#C6F24A; --creme:#FFF8E6; --carvao:#1A1A1A; --neblina:#E6F3FF;
+    --card:#FFFFFF; --line:#EAE1CC; --text-dim:#6B6455;
+  }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
-  body{font-family:'Share Tech Mono', monospace;background:var(--panel-bg);color:var(--text);
-    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
-  #admin{max-width:520px;margin:0 auto;padding:20px 16px 60px;}
-  #admin h1{font-family:'Orbitron',sans-serif;font-size:20px;font-weight:800;letter-spacing:.02em;margin:4px 0 2px;color:var(--accent);}
-  #admin .sub{color:var(--text-dim);font-size:13px;margin-bottom:20px;}
-  .card{background:var(--panel-bg-2);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px;}
+  body{
+    font-family:'Sora',sans-serif; background:var(--creme); color:var(--carvao);
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+    -webkit-font-smoothing:antialiased;
+  }
+  #admin{max-width:1080px; margin:0 auto; padding:28px 20px 60px;}
+
+  .topbar{display:flex; align-items:center; gap:12px; margin-bottom:26px;}
+  .logo-dot{width:34px; height:34px; border-radius:10px; flex:none;
+    background:linear-gradient(135deg, var(--solare), var(--lima)); box-shadow:0 3px 0 rgba(26,26,26,.08);}
+  .topbar h1{font-size:19px; font-weight:800; margin:0; letter-spacing:-.01em;}
+  .topbar .sub{font-size:12.5px; color:var(--text-dim); margin-top:1px;}
+
+  .bento{
+    display:grid; gap:14px;
+    grid-template-columns:repeat(12, 1fr);
+    grid-template-areas:
+      "modo modo modo modo cores cores cores cores fonte fonte fonte fonte"
+      "prev prev prev prev prev prev prev status status status status status";
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:20px;
+    padding:18px; min-width:0;
+  }
+  #cardModo{grid-area:modo;} #cardCores{grid-area:cores;} #cardFonte{grid-area:fonte;}
+  #cardPreview{grid-area:prev;} #cardStatus{grid-area:status;}
+
+  .card h2{font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-dim); margin:0 0 12px;}
+
   .row{margin-bottom:14px;} .row:last-child{margin-bottom:0;}
-  label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;}
-  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
-  .seg button{flex:1;padding:10px;background:transparent;color:var(--text-dim);border:none;font-family:inherit;font-size:13px;cursor:pointer;}
-  .seg button.on{background:var(--accent);color:#04150a;font-weight:700;}
-  textarea,input[type=number],select{width:100%;background:#0f1116;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:10px;font-family:inherit;font-size:14px;}
-  textarea{resize:vertical;min-height:64px;}
-  .colorRow{display:flex;gap:10px;} .colorRow > div{flex:1;}
-  input[type=color]{width:100%;height:40px;border:1px solid var(--line);border-radius:8px;background:#0f1116;padding:3px;}
-  input[type=range]{width:100%;}
-  .rangeVal{color:var(--accent);font-size:12px;float:right;}
-  .previewBox{border-radius:8px;padding:22px 10px;text-align:center;transition:background .3s,color .3s;overflow:hidden;}
-  .previewBox span{text-shadow:0 0 6px currentColor;white-space:pre-wrap;word-wrap:break-word;}
-  #saveBtn{width:100%;padding:13px;border:none;border-radius:8px;background:var(--accent);color:#04150a;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;letter-spacing:.02em;}
+  label{display:block; font-size:12.5px; font-weight:500; color:var(--text-dim); margin-bottom:6px;}
+
+  .seg{display:flex; background:var(--neblina); border-radius:12px; padding:3px; gap:3px;}
+  .seg button{flex:1; padding:9px; background:transparent; border:none; border-radius:9px;
+    font-family:inherit; font-size:13px; font-weight:600; color:var(--carvao); opacity:.55; cursor:pointer;}
+  .seg button.on{background:var(--carvao); color:var(--lima); opacity:1;}
+
+  textarea,select{
+    width:100%; background:var(--creme); border:1px solid var(--line); color:var(--carvao);
+    border-radius:12px; padding:10px 12px; font-family:inherit; font-size:14px; font-weight:500;
+  }
+  textarea{resize:vertical; min-height:60px;}
+  select{appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%231A1A1A'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 14px center;}
+
+  .colorRow{display:flex; gap:10px;} .colorRow > div{flex:1; min-width:0;}
+  input[type=color]{width:100%; height:42px; border:1px solid var(--line); border-radius:12px; background:var(--creme); padding:4px; cursor:pointer;}
+
+  input[type=range]{width:100%; accent-color:var(--carvao);}
+  .rangeVal{color:var(--carvao); font-weight:700; font-size:12px; float:right;}
+
+  .previewBox{border-radius:14px; padding:26px 12px; text-align:center; min-height:120px;
+    display:flex; align-items:center; justify-content:center; overflow:hidden; transition:background .3s,color .3s;}
+  .previewBox span{white-space:pre-wrap; word-wrap:break-word; font-weight:700;}
+
+  #saveBtn{width:100%; padding:13px; border:none; border-radius:12px; background:var(--carvao); color:var(--lima);
+    font-weight:700; font-size:14px; font-family:inherit; cursor:pointer; letter-spacing:.01em;}
   #saveBtn:active{opacity:.85;}
-  #status{text-align:center;font-size:12px;color:var(--text-dim);margin-top:10px;min-height:14px;}
-  .linkBox{font-size:12px;color:var(--text-dim);word-break:break-all;background:#0f1116;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:6px;}
-  .hint{font-size:11px;color:var(--text-dim);margin-top:6px;}
+  #status{text-align:center; font-size:12px; color:var(--text-dim); margin-top:10px; min-height:14px;}
+
+  .linkBox{font-size:12px; color:var(--text-dim); word-break:break-all; background:var(--creme);
+    border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-top:6px;}
+  .hint{font-size:11px; color:var(--text-dim); margin-top:6px;}
+
+  @media (max-width:760px){
+    .bento{grid-template-columns:1fr;
+      grid-template-areas:"modo" "cores" "fonte" "prev" "status";}
+  }
 </style>
 </head>
 <body>
 <div id="admin">
-  <h1>PAINEL — LETREIRO LED</h1>
-  <div class="sub">Configure o que aparece nos celulares que estiverem com o letreiro aberto.</div>
+  <div class="topbar">
+    <div class="logo-dot"></div>
+    <div>
+      <h1>Painel do Letreiro</h1>
+      <div class="sub">Configure o que aparece nos celulares conectados</div>
+    </div>
+  </div>
 
-  <div class="card">
-    <div class="row">
-      <label>Modo</label>
-      <div class="seg" id="modeSeg">
-        <button data-v="clock">Relógio</button>
-        <button data-v="message">Mensagem</button>
+  <div class="bento">
+    <div class="card" id="cardModo">
+      <h2>Conteúdo</h2>
+      <div class="row">
+        <label>Modo</label>
+        <div class="seg" id="modeSeg">
+          <button data-v="clock">Relógio</button>
+          <button data-v="message">Mensagem</button>
+        </div>
+      </div>
+      <div class="row" id="msgRow">
+        <label>Mensagem</label>
+        <textarea id="message" maxlength="200" placeholder="Digite a mensagem…"></textarea>
+      </div>
+      <div class="row" id="durRow">
+        <label>Duração antes de voltar ao relógio <span class="rangeVal" id="durVal"></span></label>
+        <input type="range" id="messageDuration" min="3" max="120" step="1">
+      </div>
+      <div class="row" id="secRow">
+        <label>Relógio</label>
+        <div class="seg" id="secSeg">
+          <button data-v="1">Com segundos</button>
+          <button data-v="0">Sem segundos</button>
+        </div>
       </div>
     </div>
-    <div class="row" id="msgRow">
-      <label>Mensagem</label>
-      <textarea id="message" maxlength="200" placeholder="Digite a mensagem…"></textarea>
-    </div>
-    <div class="row" id="durRow">
-      <label>Duração da mensagem antes de voltar ao relógio (segundos) <span class="rangeVal" id="durVal"></span></label>
-      <input type="range" id="messageDuration" min="3" max="120" step="1">
-    </div>
-    <div class="row" id="secRow">
-      <label>Relógio</label>
-      <div class="seg" id="secSeg">
-        <button data-v="1">Com segundos</button>
-        <button data-v="0">Sem segundos</button>
+
+    <div class="card" id="cardCores">
+      <h2>Cores</h2>
+      <div class="row colorRow">
+        <div><label>Fundo</label><input type="color" id="bgColor"></div>
+        <div><label>Fonte</label><input type="color" id="fontColor"></div>
       </div>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="row colorRow">
-      <div><label>Cor de fundo</label><input type="color" id="bgColor"></div>
-      <div><label>Cor da fonte</label><input type="color" id="fontColor"></div>
+    <div class="card" id="cardFonte">
+      <h2>Tipografia</h2>
+      <div class="row">
+        <label>Fonte</label>
+        <select id="fontFamily">
+          <option value="'Orbitron', sans-serif">Orbitron (display)</option>
+          <option value="'VT323', monospace">VT323 (pixel/LED)</option>
+          <option value="'Share Tech Mono', monospace">Share Tech Mono</option>
+          <option value="'Courier Prime', monospace">Courier Prime</option>
+          <option value="Arial, sans-serif">Arial</option>
+          <option value="Georgia, serif">Georgia</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Tamanho <span class="rangeVal" id="sizeVal"></span></label>
+        <input type="range" id="fontSize" min="60" max="140" step="5">
+      </div>
     </div>
-    <div class="row">
-      <label>Fonte</label>
-      <select id="fontFamily">
-        <option value="'Orbitron', sans-serif">Orbitron (display)</option>
-        <option value="'VT323', monospace">VT323 (pixel/LED)</option>
-        <option value="'Share Tech Mono', monospace">Share Tech Mono</option>
-        <option value="'Courier Prime', monospace">Courier Prime</option>
-        <option value="Arial, sans-serif">Arial</option>
-        <option value="Georgia, serif">Georgia</option>
-      </select>
+
+    <div class="card" id="cardPreview">
+      <h2>Prévia</h2>
+      <div class="previewBox" id="preview"><span id="previewText"></span></div>
     </div>
-    <div class="row">
-      <label>Tamanho do texto (o padrão já preenche a tela) <span class="rangeVal" id="sizeVal"></span></label>
-      <input type="range" id="fontSize" min="60" max="140" step="5">
+
+    <div class="card" id="cardStatus">
+      <h2>Aplicar</h2>
+      <button id="saveBtn">Aplicar nas telas</button>
+      <div id="status"></div>
+      <div class="row" style="margin-top:14px;">
+        <label>Link do letreiro</label>
+        <div class="linkBox" id="displayLink"></div>
+        <div class="hint">Abra esse link nos celulares que serão a tela.</div>
+      </div>
     </div>
-  </div>
-
-  <div class="card">
-    <label>Prévia</label>
-    <div class="previewBox" id="preview"><span id="previewText"></span></div>
-  </div>
-
-  <button id="saveBtn">Aplicar nas telas</button>
-  <div id="status"></div>
-
-  <div class="card">
-    <label>Link do letreiro (abra este nos celulares que serão a tela)</label>
-    <div class="linkBox" id="displayLink"></div>
-    <div class="hint">Quem abrir esse link só vê o letreiro. Este painel (admin.html) controla todos que estiverem com ele aberto.</div>
   </div>
 </div>
 
