@@ -69,9 +69,15 @@
   input[type=range]{width:100%; accent-color:var(--carvao);}
   .rangeVal{color:var(--carvao); font-weight:700; font-size:12px; float:right;}
 
-  .previewBox{border-radius:14px; padding:26px 12px; text-align:center; min-height:120px;
-    display:flex; align-items:center; justify-content:center; overflow:hidden; transition:background .3s,color .3s;}
-  .previewBox span{white-space:pre-wrap; word-wrap:break-word; font-weight:700;}
+  .previewWrap{display:flex; justify-content:center;}
+  .previewBox{
+    width:100%; max-width:200px; aspect-ratio:9/19.5; border-radius:26px; padding:5%;
+    text-align:center; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; transition:background .3s,color .3s; border:6px solid var(--carvao); position:relative;
+  }
+  #previewContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap; font-weight:700;}
+  #previewSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
+  .preview-caption{text-align:center; font-size:11px; color:var(--text-dim); margin-top:10px;}
 
   #saveBtn{width:100%; padding:13px; border:none; border-radius:12px; background:var(--carvao); color:var(--lima);
     font-weight:700; font-size:14px; font-family:inherit; cursor:pointer; letter-spacing:.01em;}
@@ -148,13 +154,21 @@
       </div>
       <div class="row">
         <label>Tamanho <span class="rangeVal" id="sizeVal"></span></label>
-        <input type="range" id="fontSize" min="60" max="140" step="5">
+        <input type="range" id="fontSize" min="50" max="100" step="5">
       </div>
     </div>
 
     <div class="card" id="cardPreview">
       <h2>Prévia</h2>
-      <div class="previewBox" id="preview"><span id="previewText"></span></div>
+      <div class="previewWrap">
+        <div class="previewBox" id="preview">
+          <div id="previewContent">
+            <div id="previewMain"></div>
+            <div id="previewSub"></div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-caption">Reflete o tamanho real no aparelho conectado</div>
     </div>
 
     <div class="card" id="cardStatus">
@@ -187,6 +201,35 @@ const state = Object.assign({}, DEFAULT_CONFIG);
 let saveTimer = null;
 let suppressRemote = false;
 
+/* ===== Mesmo motor de ajuste automático do index.html — a prévia calcula
+   o tamanho exatamente como o letreiro real faria, dentro do formato de celular ===== */
+const measureCanvas = document.createElement('canvas');
+const measureCtx = measureCanvas.getContext('2d');
+function widestLineWidth(text, fontPx, fontFamily){
+  measureCtx.font = `700 ${fontPx}px ${fontFamily}`;
+  const lines = String(text || ' ').split('\n');
+  return Math.max(...lines.map(l => measureCtx.measureText(l || ' ').width), 1);
+}
+function fitPreviewText(){
+  const box = el('preview');
+  const mainEl = el('previewMain');
+  const hasSub = !!el('previewSub').textContent;
+  const innerW = box.clientWidth * 0.9;
+  const innerH = box.clientHeight * 0.86;
+  const lineCount = String(mainEl.textContent || ' ').split('\n').length;
+
+  const REF = 200;
+  const refW = widestLineWidth(mainEl.textContent, REF, state.fontFamily);
+  const sizeByWidth = (innerW / refW) * REF;
+  const lineHeightFactor = 1.15 * lineCount;
+  const subFactor = hasSub ? 0.62 : 0;
+  const sizeByHeight = innerH / (lineHeightFactor + subFactor);
+
+  const scale = (state.fontSize || 100) / 100;
+  const fontPx = Math.max(6, Math.min(sizeByWidth, sizeByHeight) * scale);
+  el('previewContent').style.fontSize = fontPx + 'px';
+}
+
 el('displayLink').textContent = location.origin + location.pathname.replace(/admin\.html$/, 'index.html');
 
 function setSeg(container, value){
@@ -216,12 +259,17 @@ function renderPreview(){
   box.style.background = state.bgColor;
   box.style.color = state.fontColor;
   box.style.fontFamily = state.fontFamily;
-  const txt = el('previewText');
-  const previewScale = state.fontSize / 100;
-  txt.style.fontSize = Math.max(4, Math.min(9 * previewScale, 13)) + 'vw';
-  txt.textContent = state.mode === 'message' ? (state.message || ' ')
-    : new Date().toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
+  if(state.mode === 'message'){
+    el('previewMain').textContent = state.message || ' ';
+    el('previewSub').textContent = '';
+  } else {
+    const now = new Date();
+    el('previewMain').textContent = now.toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
+    el('previewSub').textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+  }
+  fitPreviewText();
 }
+window.addEventListener('resize', ()=> fitPreviewText());
 function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 450); }
 
 function toRow(s){
@@ -234,7 +282,7 @@ function toRow(s){
 function fromRow(r){
   return {
     mode: r.mode, message: r.message, bgColor: r.bg_color, fontColor: r.font_color,
-    fontFamily: r.font_family, fontSize: r.font_size, messageDuration: r.message_duration,
+    fontFamily: r.font_family, fontSize: Math.min(r.font_size || 100, 100), messageDuration: r.message_duration,
     showSeconds: r.show_seconds
   };
 }
