@@ -60,7 +60,6 @@ const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
   font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
   orientation: 'auto', message_anim: 'none', glow: false,
-  countdown_target: null, countdown_label: '', countdown_end: 'clock',
   schedule_enabled: false, schedule: [], updated_at: null
 };
 
@@ -167,41 +166,6 @@ function showClock(){
   clearInterval(clockTimer);
   tickClock();
   clockTimer = setInterval(tickClock, 1000);
-}
-
-function formatCountdownParts(cfg){
-  if(!cfg.countdown_target) return null;
-  const target = new Date(cfg.countdown_target).getTime();
-  if(isNaN(target)) return null;
-  const diff = target - Date.now();
-  if(diff <= 0){
-    if(cfg.countdown_end === 'zeros') return '0:00';
-    return 'DONE';
-  }
-  const totalSec = Math.floor(diff / 1000);
-  const d = Math.floor(totalSec / 86400);
-  const h = Math.floor((totalSec % 86400) / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const pad2n = n => String(n).padStart(2, '0');
-  if(d > 0) return `${d}:${pad2n(h)}:${pad2n(m)}:${pad2n(s)}`;
-  if(h > 0) return `${h}:${pad2n(m)}:${pad2n(s)}`;
-  return `${m}:${pad2n(s)}`;
-}
-
-function tickCountdown(){
-  const body = formatCountdownParts(currentCfg);
-  if(body === 'DONE'){ showClock(); return; }
-  main.textContent = body || '0:00';
-  sub.textContent = currentCfg.countdown_label || '';
-  fitDisplay();
-}
-
-function showCountdown(){
-  stopAnim();
-  clearInterval(clockTimer);
-  tickCountdown();
-  clockTimer = setInterval(tickCountdown, 1000);
 }
 
 function playScroll(direction){
@@ -318,8 +282,6 @@ function applyConfig(cfg){
       const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
       revertTimer = setTimeout(showClock, remaining * 1000);
     }
-  } else if(cfg.mode === 'countdown'){
-    showCountdown();
   } else {
     showClock();
   }
