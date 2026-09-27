@@ -157,9 +157,9 @@ function syncOrientation(cfg){
 }
 
 function styleScreen(cfg){
-  screenEl.style.background = cfg.bg_color;
-  screenEl.style.color = cfg.font_color;
-  screenEl.style.fontFamily = cfg.font_family;
+  screenEl.style.background = cfg.bg_color || DEFAULT_CONFIG.bg_color;
+  screenEl.style.color = cfg.font_color || DEFAULT_CONFIG.font_color;
+  screenEl.style.fontFamily = cfg.font_family || DEFAULT_CONFIG.font_family;
   if(cfg.glow){
     content.style.textShadow = '0 0 .08em currentColor, 0 0 .22em currentColor';
     content.style.filter = 'drop-shadow(0 0 3px currentColor)';
@@ -170,23 +170,32 @@ function styleScreen(cfg){
 }
 
 function tickClock(){
-  const now = new Date();
-  const opts = currentCfg.show_seconds
-    ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
-    : {hour:'2-digit',minute:'2-digit',hour12:false};
-  main.textContent = now.toLocaleTimeString('pt-BR', opts);
-  fitDisplay();
+  try{
+    const now = new Date();
+    const opts = currentCfg.show_seconds
+      ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
+      : {hour:'2-digit',minute:'2-digit',hour12:false};
+    main.textContent = now.toLocaleTimeString('pt-BR', opts);
+    fitDisplay();
+  }catch(e){
+    console.error('Erro no relógio, forçando recuperação:', e);
+    hardReset();
+  }
 }
 
 let activeAnim = null;
 function stopAnim(){
-  if(activeAnim){ activeAnim.cancel(); activeAnim = null; }
+  if(activeAnim){ try{ activeAnim.cancel(); }catch(e){} activeAnim = null; }
+  // limpa TODO estilo que qualquer animação possa ter deixado — isso é o que
+  // evitava a tela travar preta ao trocar de "mensagem" pra "relógio"
   content.style.position = '';
   content.style.top = '';
   content.style.left = '';
   content.style.width = '';
   content.style.whiteSpace = '';
   content.style.transform = '';
+  content.style.opacity = '';
+  content.style.fontSize = '';
 }
 
 function showClock(){
@@ -275,18 +284,56 @@ function playBlink(){
 }
 
 function dispatchAnim(anim){
-  if(anim === 'scroll-left' || anim === 'scroll-right'){
-    playScroll(anim);
-  } else if(anim === 'drop' || anim === 'rise'){
-    playVertical(anim);
-  } else if(anim === 'fade'){
-    playFade();
-  } else if(anim === 'blink'){
-    playBlink();
-  } else {
+  try{
+    if(anim === 'scroll-left' || anim === 'scroll-right'){
+      playScroll(anim);
+    } else if(anim === 'drop' || anim === 'rise'){
+      playVertical(anim);
+    } else if(anim === 'fade'){
+      playFade();
+    } else if(anim === 'blink'){
+      playBlink();
+    } else {
+      fitDisplay();
+    }
+  }catch(e){
+    console.error('Erro ao animar, voltando ao texto estático:', e);
+    stopAnim();
     fitDisplay();
   }
 }
+
+/* ===== Recuperação automática =====
+   Se qualquer coisa der errado (config incompleta, erro de cálculo, etc.),
+   isso garante que a tela nunca fique travada/preta: limpa tudo e volta
+   pro relógio, que é o modo mais simples e sempre funciona. */
+function hardReset(){
+  try{
+    clearTimeout(revertTimer);
+    clearInterval(clockTimer);
+    stopAnim();
+    screenEl.style.background = (currentCfg && currentCfg.bg_color) || DEFAULT_CONFIG.bg_color;
+    screenEl.style.color = (currentCfg && currentCfg.font_color) || DEFAULT_CONFIG.font_color;
+    showClock();
+  }catch(e){
+    // último recurso: recarrega a página
+    console.error('Falha na recuperação, recarregando a página:', e);
+    setTimeout(()=> location.reload(), 1500);
+  }
+}
+window.addEventListener('error', ()=> hardReset());
+window.addEventListener('unhandledrejection', ()=> hardReset());
+
+/* Vigia: a cada 4s confere se, estando em modo relógio, o texto realmente
+   parece um horário e está visível. Se não estiver, força a recuperação —
+   pega qualquer trava silenciosa que passe despercebida pelos try/catch. */
+setInterval(()=>{
+  if(currentCfg.mode !== 'message'){
+    const looksLikeTime = /\d{1,2}:\d{2}/.test(main.textContent || '');
+    const visible = parseFloat(getComputedStyle(content).opacity || '1') > 0.05;
+    if(!looksLikeTime || !visible) hardReset();
+  }
+}, 4000);
 
 function refitCurrent(){
   const anim = currentCfg.mode === 'message' ? currentCfg.message_anim : null;
@@ -301,21 +348,26 @@ function showMessage(text, anim){
 }
 
 function applyConfig(cfg){
-  currentCfg = cfg;
-  styleScreen(cfg);
-  syncOrientation(cfg);
-  if(cfg.keep_awake === false) releaseWakeLock(); else requestWakeLock();
-  clearTimeout(revertTimer);
-  if(cfg.mode === 'message'){
-    showMessage(cfg.message, cfg.message_anim);
-    if(!cfg.__scheduled){
-      const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
-      const elapsedSec = (Date.now() - updatedAt) / 1000;
-      const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
-      revertTimer = setTimeout(showClock, remaining * 1000);
+  try{
+    currentCfg = cfg;
+    styleScreen(cfg);
+    syncOrientation(cfg);
+    if(cfg.keep_awake === false) releaseWakeLock(); else requestWakeLock();
+    clearTimeout(revertTimer);
+    if(cfg.mode === 'message'){
+      showMessage(cfg.message, cfg.message_anim);
+      if(!cfg.__scheduled){
+        const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
+        const elapsedSec = (Date.now() - updatedAt) / 1000;
+        const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
+        revertTimer = setTimeout(showClock, remaining * 1000);
+      }
+    } else {
+      showClock();
     }
-  } else {
-    showClock();
+  }catch(e){
+    console.error('Erro ao aplicar configuração, recuperando:', e);
+    hardReset();
   }
 }
 
