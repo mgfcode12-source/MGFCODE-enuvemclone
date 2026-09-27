@@ -57,7 +57,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
   font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
-  orientation: 'auto', message_anim: 'scroll-left', glow: false,
+  orientation: 'auto', message_anim: 'scroll-left', message_speed: 'normal', keep_awake: true, glow: false,
   schedule_enabled: false, schedule: [], updated_at: null
 };
 
@@ -77,12 +77,14 @@ async function requestWakeLock(){
     }
   }catch(e){ /* alguns navegadores recusam se a aba não está em foco — tudo bem, tentamos de novo depois */ }
 }
-requestWakeLock();
+function releaseWakeLock(){
+  if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+}
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible') requestWakeLock();
+  if(document.visibilityState === 'visible' && currentCfg.keep_awake !== false) requestWakeLock();
 });
 // alguns Android soltam o wake lock sozinhos depois de um tempo — reforça periodicamente
-setInterval(requestWakeLock, 20000);
+setInterval(() => { if(currentCfg.keep_awake !== false) requestWakeLock(); }, 20000);
 
 /* ===== AJUSTE AUTOMÁTICO: o texto sempre ocupa a tela inteira ===== */
 const measureCanvas = document.createElement('canvas');
@@ -212,7 +214,8 @@ function playScroll(direction){
   const textWidth = widestLineWidth(main.textContent, fontPx, family);
   const screenW = screenEl.clientWidth;
   const distance = textWidth + screenW;
-  const speedPxPerSec = 130;
+  const speedMap = {slow: 80, normal: 130, fast: 200};
+  const speedPxPerSec = speedMap[currentCfg.message_speed] || 130;
   const duration = Math.max(4000, (distance / speedPxPerSec) * 1000);
 
   const startX = direction === 'scroll-left' ? screenW : -textWidth;
@@ -301,6 +304,7 @@ function applyConfig(cfg){
   currentCfg = cfg;
   styleScreen(cfg);
   syncOrientation(cfg);
+  if(cfg.keep_awake === false) releaseWakeLock(); else requestWakeLock();
   clearTimeout(revertTimer);
   if(cfg.mode === 'message'){
     showMessage(cfg.message, cfg.message_anim);
