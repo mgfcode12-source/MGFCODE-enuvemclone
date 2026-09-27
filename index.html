@@ -421,10 +421,26 @@ setInterval(refreshEffective, 5000); // checa a cada 5s se cruzou algum horário
 let lastConfigKey = null;
 function configKey(cfg){ return JSON.stringify(cfg); }
 
+/* ===== Comando de recarga remota =====
+   O admin pode gravar um novo "reload_token" pra forçar TODOS os celulares
+   a recarregar a página do zero — útil quando a tela trava de um jeito que
+   nem o hardReset() acima resolve (ex.: precisa buscar uma versão nova do
+   arquivo), ou simplesmente quando você não tem acesso físico ao aparelho. */
+let lastReloadToken = undefined; // undefined = ainda não sabemos o valor atual
+function handleReloadToken(token){
+  if(!token) return;
+  if(lastReloadToken === undefined){ lastReloadToken = token; return; } // primeira leitura, não recarrega
+  if(token !== lastReloadToken){
+    lastReloadToken = token;
+    location.reload();
+  }
+}
+
 async function loadInitial(){
   const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
   if(error || !data){ screenEl.classList.add('offline'); return; }
   screenEl.classList.remove('offline');
+  handleReloadToken(data.reload_token);
   const merged = normalizeCfg(data);
   const key = configKey(merged);
   if(key === lastConfigKey) return; // nada mudou no banco
@@ -437,6 +453,7 @@ function subscribeRealtime(){
   sb.channel('letreiro-display')
     .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, (payload)=>{
       if(!payload.new) return;
+      handleReloadToken(payload.new.reload_token);
       const merged = normalizeCfg(payload.new);
       const key = configKey(merged);
       if(key === lastConfigKey) return;
