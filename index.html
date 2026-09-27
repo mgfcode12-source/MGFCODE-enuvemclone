@@ -100,27 +100,36 @@ function fitDisplay(){
 }
 
 /* ===== ROTAÇÃO ===== */
-const ROT_KEY = 'letreiroRotationDeg';
-const rotateBtn = document.getElementById('rotateBtn');
-let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
+// ===== ORIENTAÇÃO DEFINITIVA =====
+// Nunca usamos uma rotação salva no localStorage: ela poderia ficar presa em 90°
+// e deixar o desktop deitado. A orientação visual é decidida pelo viewport atual.
+let rotation = 0;
 
 function applyRotation(){
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const swapped = (rotation === 90 || rotation === 270);
-  screenEl.style.width = (swapped ? vh : vw) + 'px';
-  screenEl.style.height = (swapped ? vw : vh) + 'px';
-  screenEl.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const portrait = vh > vw;
+
+  // Desktop/tablet/celular já em paisagem: NÃO gira.
+  // Celular em retrato: gira somente o painel visual para formar uma tela 16:9.
+  rotation = portrait ? 90 : 0;
+
+  if(rotation === 90){
+    screenEl.style.width = vh + 'px';
+    screenEl.style.height = vw + 'px';
+    screenEl.style.transform = 'translate(-50%, -50%) rotate(90deg)';
+  } else {
+    screenEl.style.width = vw + 'px';
+    screenEl.style.height = vh + 'px';
+    screenEl.style.transform = 'translate(-50%, -50%)';
+  }
+
   refitCurrent();
 }
 
-// Se o admin definir uma orientação fixa (vertical/horizontal), ela vale para
-// todos os aparelhos e o botão manual fica escondido. Em "Automático" cada
-// celular guarda sua própria rotação (botão ⟳ continua disponível).
 function syncOrientation(cfg){
-  // O letreiro é sempre horizontal.
-  rotation = 90;
-  localStorage.setItem(ROT_KEY, rotation);
-  rotateBtn.style.display = 'none';
+  // A orientação física deve ser paisagem. O bloqueio é uma melhoria quando
+  // o navegador permite; a renderização visual continua funcionando sem ele.
   applyRotation();
   try{
     if(screen.orientation && screen.orientation.lock){
@@ -144,9 +153,8 @@ function styleScreen(cfg){
 
 function tickClock(){
   const now = new Date();
-  const opts = currentCfg.show_seconds
-    ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
-    : {hour:'2-digit',minute:'2-digit',hour12:false};
+  // O letreiro mostra SOMENTE hora e minuto. Nunca exibe data, dia ou mês.
+  const opts = {hour:'2-digit', minute:'2-digit', hour12:false};
   main.textContent = now.toLocaleTimeString('pt-BR', opts);
   sub.textContent = '';
   fitDisplay();
