@@ -8,51 +8,52 @@
 <link rel="icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;800&family=VT323&family=Share+Tech+Mono&family=Courier+Prime:wght@700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --accent:#c6ff3d; --accent-ink:#0a0f06;
-    --bg:#08090b; --bg-elev:#111318; --bg-elev2:#16181e;
-    --card:#0e1014; --card-border:rgba(255,255,255,.09);
-    --text:#f2f3f5; --text-dim:#94989e; --text-dimmer:#5b5f66;
-    --danger:#ff5b5b; --radius:14px;
+    --accent:#f2b705; --accent2:#c99400; --accent-ink:#1a1400;
+    --bg:#f5f6f8; --bg-elev:#ffffff; --bg-elev2:#eef1f6;
+    --card:#ffffff; --card-border:#e3e6ec;
+    --text:#0f1720; --text-dim:#5c6470; --text-dimmer:#9aa1ac;
+    --danger:#c73a3a; --radius:12px;
+    --sidebar-bg:#0b1220; --sidebar-text:#c7ccd6;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
   body{
-    font-family:'Sora',sans-serif; color:var(--text); -webkit-font-smoothing:antialiased;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; color:var(--text); -webkit-font-smoothing:antialiased;
     background:var(--bg);
     padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
     min-height:100%;
   }
   ::selection{background:var(--accent); color:var(--accent-ink);}
   ::-webkit-scrollbar{width:10px; height:10px;}
-  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12); border-radius:99px;}
+  ::-webkit-scrollbar-thumb{background:rgba(15,23,32,.15); border-radius:99px;}
 
   /* ===== layout: sidebar + conteúdo ===== */
   #app{display:flex; min-height:100vh;}
 
   #sidebar{
     width:232px; flex:none; padding:24px 14px; display:flex; flex-direction:column; gap:2px;
-    background:var(--bg-elev);
-    border-right:1px solid var(--card-border); position:sticky; top:0; height:100vh;
+    background:var(--sidebar-bg);
+    border-right:1px solid rgba(255,255,255,.06); position:sticky; top:0; height:100vh;
   }
   .brand{display:flex; align-items:center; gap:11px; padding:6px 10px 26px;}
-  .brand .dot{width:30px; height:30px; border-radius:9px; flex:none; background:var(--accent);}
-  .brand h1{font-size:14.5px; font-weight:700; margin:0; letter-spacing:-.01em;}
-  .brand .sub{font-size:11px; color:var(--text-dim); margin-top:1px;}
+  .brand .dot{width:30px; height:30px; border-radius:8px; flex:none; background:var(--accent);}
+  .brand h1{font-size:14.5px; font-weight:700; margin:0; letter-spacing:-.01em; color:#fff;}
+  .brand .sub{font-size:11px; color:var(--sidebar-text); margin-top:1px;}
 
   .navBtn{
     display:flex; align-items:center; gap:11px; padding:11px 12px; border-radius:10px;
-    color:var(--text-dim); font-size:13.5px; font-weight:600; cursor:pointer; border:1px solid transparent;
+    color:var(--sidebar-text); font-size:13.5px; font-weight:600; cursor:pointer; border:1px solid transparent;
     background:transparent; text-align:left; width:100%; font-family:inherit; transition:.15s ease;
   }
-  .navBtn:hover{background:var(--bg-elev2); color:var(--text);}
-  .navBtn.on{background:var(--bg-elev2); color:var(--text); box-shadow:inset 2px 0 0 var(--accent);}
+  .navBtn:hover{background:rgba(255,255,255,.06); color:#fff;}
+  .navBtn.on{background:rgba(255,255,255,.08); color:#fff; box-shadow:inset 2px 0 0 var(--accent);}
   .navSpacer{flex:1;}
-  .navFoot{padding:10px 12px; font-size:10.5px; color:var(--text-dimmer); line-height:1.5;}
+  .navFoot{padding:10px 12px; font-size:10.5px; color:rgba(255,255,255,.35); line-height:1.5;}
 
   #main{flex:1; min-width:0; padding:28px 28px 80px; max-width:1180px; margin:0 auto; width:100%;}
   .topline{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:22px; flex-wrap:wrap;}
@@ -66,7 +67,7 @@
   /* ===== cards ===== */
   .card{
     background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius);
-    padding:20px; min-width:0;
+    padding:20px; min-width:0; box-shadow:0 1px 2px rgba(15,23,32,.04);
   }
   .card h3{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
     color:var(--text-dim); margin:0 0 16px;}
@@ -131,6 +132,15 @@
   .addSchedRow select{flex:0 0 132px; padding:9px 12px;}
   .addSchedRow input[type=text]{flex:1; min-width:160px;}
 
+  .cdSimple{display:flex; gap:10px;}
+  .cdUnit{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;
+    background:var(--bg-elev); border:1px solid var(--card-border); border-radius:11px; padding:10px 6px;}
+  .cdNumInput{width:100%; border:none; background:transparent; font-size:32px; font-weight:800;
+    text-align:center; color:var(--text); font-family:inherit; padding:6px 0; -moz-appearance:textfield;}
+  .cdNumInput::-webkit-outer-spin-button, .cdNumInput::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+  .cdNumInput:focus{outline:2px solid var(--accent); border-radius:8px;}
+  .cdUnitLabel{font-size:12px; font-weight:600; color:var(--text-dim);}
+
   /* ===== preview (celular) ===== */
   .previewCardWrap{position:sticky; top:22px;}
   .previewToggle{display:flex; gap:6px; margin-bottom:14px;}
@@ -142,14 +152,13 @@
     background:#000; border-radius:22px; padding:5%; text-align:center; display:flex; align-items:center; justify-content:center;
     overflow:hidden; transition:background .3s,color .3s, width .25s ease, height .25s ease; border:6px solid #202329; position:relative;
   }
-  .previewBox.portrait{width:190px; height:calc(190px * 19.5 / 9);}
   .previewBox.landscape{width:340px; height:calc(340px * 9 / 19.5);}
   #previewContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap; font-weight:700;}
   .preview-caption{text-align:center; font-size:11px; color:var(--text-dimmer); margin-top:12px;}
 
   #saveBtn{width:100%; padding:14px; border:none; border-radius:11px;
     background:var(--accent); color:var(--accent-ink);
-    font-weight:800; font-size:14px; font-family:inherit; cursor:pointer; letter-spacing:.01em;}
+    font-weight:700; font-size:14px; font-family:inherit; cursor:pointer; letter-spacing:.01em;}
   #saveBtn:active{transform:translateY(1px);}
   #status{text-align:center; font-size:12px; color:var(--text-dim); margin-top:11px; min-height:14px;}
 
@@ -160,8 +169,8 @@
   #qrImg{width:132px; height:132px; border-radius:10px; border:1px solid var(--card-border); background:#fff; padding:6px;}
 
   .badge{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 9px;
-    border-radius:999px; background:rgba(198,255,61,.10); color:var(--accent); border:1px solid rgba(198,255,61,.25);}
-  .liveDot{width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 6px var(--accent);
+    border-radius:999px; background:rgba(10,92,255,.08); color:var(--accent); border:1px solid rgba(10,92,255,.18);}
+  .liveDot{width:6px; height:6px; border-radius:50%; background:var(--accent);
     animation:pulse 1.6s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
 
@@ -171,7 +180,7 @@
     #sidebar{display:none;}
     #mobileTopBar{
       display:flex; gap:6px; overflow-x:auto; padding:12px 14px; position:sticky; top:0; z-index:30;
-      background:var(--bg-elev); border-bottom:1px solid var(--card-border);
+      background:var(--sidebar-bg); border-bottom:1px solid rgba(255,255,255,.06);
     }
     #mobileTopBar .navBtn{width:auto; white-space:nowrap; flex:none;}
     #main{padding:16px 14px 70px;}
@@ -216,14 +225,59 @@
           <div class="card" id="cardModo">
             <h3>Modo de exibição</h3>
             <div class="row">
-              <div class="seg" id="modeSeg">
+              <div class="seg wrap" id="modeSeg">
                 <button data-v="clock">Relógio</button>
                 <button data-v="message">Mensagem</button>
+                <button data-v="countdown">Contagem regressiva</button>
               </div>
             </div>
             <div class="row" id="msgRow">
               <label>Mensagem</label>
               <textarea id="message" maxlength="200" placeholder="Digite a mensagem…"></textarea>
+            </div>
+            <div class="row" id="cdRow">
+              <label>Contar até</label>
+              <div class="seg" id="cdKindSeg" style="margin-bottom:14px;">
+                <button data-v="time">Um horário</button>
+                <button data-v="duration">Tempo (dias/horas/min)</button>
+              </div>
+
+              <div id="cdKindTime">
+                <label>Até que horas</label>
+                <input type="time" id="cdTimeOfDay" style="font-size:26px; font-weight:800; padding:14px 12px; text-align:center;">
+                <div class="hint">Ex: 19:00. Se essa hora já passou hoje, conta até amanhã.</div>
+              </div>
+
+              <div id="cdKindDuration">
+                <div class="cdSimple">
+                  <div class="cdUnit">
+                    <input type="number" inputmode="numeric" min="0" max="365" class="cdNumInput" id="cdDaysVal" value="0">
+                    <div class="cdUnitLabel">dias</div>
+                  </div>
+                  <div class="cdUnit">
+                    <input type="number" inputmode="numeric" min="0" max="23" class="cdNumInput" id="cdHoursVal" value="0">
+                    <div class="cdUnitLabel">horas</div>
+                  </div>
+                  <div class="cdUnit">
+                    <input type="number" inputmode="numeric" min="0" max="59" class="cdNumInput" id="cdMinutesVal" value="10">
+                    <div class="cdUnitLabel">minutos</div>
+                  </div>
+                </div>
+              </div>
+
+              <button type="button" id="cdStartBtn" style="width:100%; margin-top:14px; padding:16px; border:none; border-radius:11px; background:var(--accent); color:var(--accent-ink); font-weight:700; font-size:16px; font-family:inherit; cursor:pointer;">Começar a contar</button>
+              <div class="hint" id="cdStatusHint"></div>
+            </div>
+            <div class="row" id="cdLabelRow">
+              <label>Rótulo (aparece junto com o tempo, se quiser)</label>
+              <input type="text" id="countdownLabel" maxlength="60" placeholder="Ex: Faltam para o culto">
+            </div>
+            <div class="row" id="cdEndRow">
+              <label>Quando chegar a zero</label>
+              <div class="seg" id="cdEndSeg">
+                <button data-v="clock">Voltar ao relógio</button>
+                <button data-v="zeros">Mostrar zerado</button>
+              </div>
             </div>
             <div class="row" id="durRow">
               <label>Duração antes de voltar ao relógio <span class="rangeVal" id="durVal"></span></label>
@@ -281,12 +335,7 @@
           <div class="card">
             <h3>Orientação nos aparelhos</h3>
             <div class="row">
-              <div class="seg" id="oriSeg">
-                <button data-v="auto">Automático</button>
-                <button data-v="portrait">Vertical</button>
-                <button data-v="landscape">Horizontal</button>
-              </div>
-              <div class="hint">"Automático" acompanha a posição real do celular — deite-o no tripé e ele preenche a tela em paisagem sozinho.</div>
+              <div class="hint">Telas sempre em modo horizontal.</div>
             </div>
           </div>
           <div class="card" style="margin-top:18px;">
@@ -388,12 +437,8 @@
       <div class="previewCardWrap">
         <div class="card">
           <h3>Prévia ao vivo</h3>
-          <div class="previewToggle">
-            <button data-v="portrait" class="on" id="prevPortraitBtn">Vertical</button>
-            <button data-v="landscape" id="prevLandscapeBtn">Horizontal</button>
-          </div>
           <div class="previewWrap">
-            <div class="previewBox portrait" id="preview">
+            <div class="previewBox landscape" id="preview">
               <div id="previewContent">
                 <div id="previewMain"></div>
               </div>
@@ -409,9 +454,9 @@
         </div>
         <div class="card" id="cardStatus" style="margin-top:18px;">
           <h3>Emergência</h3>
-          <button id="forceReloadBtn" style="width:100%; padding:13px; border:none; border-radius:14px;
-            background:linear-gradient(135deg, var(--accent3), #1c78c9); color:#031320;
-            font-weight:800; font-size:13.5px; font-family:inherit; cursor:pointer;">Recarregar telas agora</button>
+          <button id="forceReloadBtn" style="width:100%; padding:13px; border:1px solid var(--card-border); border-radius:11px;
+            background:var(--bg-elev2); color:var(--text);
+            font-weight:700; font-size:13.5px; font-family:inherit; cursor:pointer;">Recarregar telas agora</button>
           <div id="reloadStatus" style="text-align:center; font-size:12px; color:var(--text-dim); margin-top:11px; min-height:14px;"></div>
           <div class="hint">Força TODOS os celulares conectados a recarregar a página, mesmo travados ou sem resposta — não muda nenhuma outra configuração.</div>
         </div>
@@ -430,7 +475,10 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bgColor: '#050505', fontColor: '#39ff88',
   fontFamily: "'Orbitron', sans-serif", fontSize: 100, messageDuration: 15, showSeconds: true,
-  orientation: 'auto', messageAnim: 'scroll-left', messageSpeed: 'normal', glow: false, keepAwake: true,
+  orientation: 'landscape', messageAnim: 'scroll-left', messageSpeed: 'normal', glow: false, keepAwake: true,
+  countdownTarget: '', countdownLabel: '', countdownEnd: 'clock',
+  countdownKind: 'time', countdownTimeOfDay: '19:00',
+  countdownDays: 0, countdownHours: 0, countdownMinutes: 10,
   scheduleEnabled: false, schedule: []
 };
 
@@ -497,18 +545,6 @@ function fitPreviewText(){
   el('previewContent').style.fontSize = fontPx + 'px';
 }
 
-/* Prévia: alternar retrato/paisagem */
-let previewOrientation = 'portrait';
-function setPreviewOrientation(v){
-  previewOrientation = v;
-  el('preview').classList.toggle('portrait', v === 'portrait');
-  el('preview').classList.toggle('landscape', v === 'landscape');
-  el('prevPortraitBtn').classList.toggle('on', v === 'portrait');
-  el('prevLandscapeBtn').classList.toggle('on', v === 'landscape');
-  fitPreviewText();
-}
-el('prevPortraitBtn').addEventListener('click', ()=> setPreviewOrientation('portrait'));
-el('prevLandscapeBtn').addEventListener('click', ()=> setPreviewOrientation('landscape'));
 
 const displayLinkURL = location.origin + location.pathname.replace(/admin\.html$/, 'index.html');
 el('displayLink').textContent = displayLinkURL;
@@ -523,6 +559,9 @@ function refreshRowVisibility(){
   el('animRow').style.display = state.mode === 'message' ? '' : 'none';
   el('speedRow').style.display = (state.mode === 'message' && state.messageAnim && state.messageAnim.indexOf('scroll') === 0) ? '' : 'none';
   el('secRow').style.display = state.mode === 'clock' ? '' : 'none';
+  el('cdRow').style.display = state.mode === 'countdown' ? '' : 'none';
+  el('cdLabelRow').style.display = state.mode === 'countdown' ? '' : 'none';
+  el('cdEndRow').style.display = state.mode === 'countdown' ? '' : 'none';
 }
 function renderForm(){
   setSeg(el('modeSeg'), state.mode);
@@ -530,7 +569,6 @@ function renderForm(){
   el('messageDuration').value = state.messageDuration;
   el('durVal').textContent = state.messageDuration + 's';
   setSeg(el('secSeg'), state.showSeconds ? '1' : '0');
-  setSeg(el('oriSeg'), state.orientation || 'auto');
   setSeg(el('animSeg'), state.messageAnim || 'none');
   setSeg(el('speedSeg'), state.messageSpeed || 'normal');
   setSeg(el('glowSeg'), state.glow ? '1' : '0');
@@ -540,6 +578,18 @@ function renderForm(){
   el('fontFamily').value = state.fontFamily;
   el('fontSize').value = state.fontSize;
   el('sizeVal').textContent = state.fontSize + '%';
+  el('countdownLabel').value = state.countdownLabel || '';
+  setSeg(el('cdEndSeg'), state.countdownEnd || 'clock');
+  setSeg(el('cdKindSeg'), state.countdownKind || 'time');
+  el('cdKindTime').style.display = (state.countdownKind || 'time') === 'time' ? '' : 'none';
+  el('cdKindDuration').style.display = (state.countdownKind || 'time') === 'duration' ? '' : 'none';
+  el('cdTimeOfDay').value = state.countdownTimeOfDay || '19:00';
+  el('cdDaysVal').value = state.countdownDays || 0;
+  el('cdHoursVal').value = state.countdownHours || 0;
+  el('cdMinutesVal').value = state.countdownMinutes || 0;
+  el('cdStatusHint').textContent = state.countdownTarget
+    ? 'Contagem em andamento. Ajuste e toque em "Começar a contar" de novo se quiser trocar.'
+    : 'Ajuste acima e toque em "Começar a contar".';
   refreshRowVisibility();
   renderSchedule();
   renderPreview();
@@ -551,11 +601,42 @@ function renderPreview(){
   box.style.fontFamily = state.fontFamily;
   if(state.mode === 'message'){
     el('previewMain').textContent = state.message || ' ';
+  } else if(state.mode === 'countdown'){
+    const cd = formatCountdown();
+    if(cd === null){
+      const now = new Date();
+      el('previewMain').textContent = now.toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
+    } else {
+      el('previewMain').textContent = cd;
+    }
   } else {
     const now = new Date();
     el('previewMain').textContent = now.toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
   }
   fitPreviewText();
+}
+function formatCountdown(){
+  if(!state.countdownTarget) return state.countdownLabel ? state.countdownLabel + '\n0:00' : '0:00';
+  const target = new Date(state.countdownTarget).getTime();
+  const diff = target - Date.now();
+  let body;
+  if(isNaN(target)){
+    body = '0:00';
+  } else if(diff <= 0){
+    body = state.countdownEnd === 'zeros' ? '0:00' : null;
+  } else {
+    const totalSec = Math.floor(diff / 1000);
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = n => String(n).padStart(2, '0');
+    if(d > 0) body = `${d}:${pad(h)}:${pad(m)}:${pad(s)}`;
+    else if(h > 0) body = `${h}:${pad(m)}:${pad(s)}`;
+    else body = `${m}:${pad(s)}`;
+  }
+  if(body === null) return null;
+  return state.countdownLabel ? state.countdownLabel + '\n' + body : body;
 }
 window.addEventListener('resize', ()=> fitPreviewText());
 function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 450); }
@@ -730,6 +811,9 @@ function toRow(s){
     show_seconds: s.showSeconds, orientation: s.orientation, message_anim: s.messageAnim,
     message_speed: s.messageSpeed, keep_awake: s.keepAwake,
     glow: s.glow, schedule_enabled: s.scheduleEnabled, schedule: s.schedule,
+    countdown_target: s.countdownTarget, countdown_label: s.countdownLabel, countdown_end: s.countdownEnd,
+    countdown_kind: s.countdownKind, countdown_time_of_day: s.countdownTimeOfDay,
+    countdown_days: s.countdownDays, countdown_hours: s.countdownHours, countdown_minutes: s.countdownMinutes,
     updated_at: new Date().toISOString()
   };
 }
@@ -737,10 +821,13 @@ function fromRow(r){
   return {
     mode: r.mode, message: r.message, bgColor: r.bg_color, fontColor: r.font_color,
     fontFamily: r.font_family, fontSize: Math.min(r.font_size || 100, 100), messageDuration: r.message_duration,
-    showSeconds: r.show_seconds, orientation: r.orientation || 'auto',
+    showSeconds: r.show_seconds, orientation: 'landscape',
     messageAnim: r.message_anim || 'none', messageSpeed: r.message_speed || 'normal',
     keepAwake: r.keep_awake !== false, glow: !!r.glow,
-    scheduleEnabled: !!r.schedule_enabled, schedule: Array.isArray(r.schedule) ? r.schedule : []
+    scheduleEnabled: !!r.schedule_enabled, schedule: Array.isArray(r.schedule) ? r.schedule : [],
+    countdownTarget: r.countdown_target || '', countdownLabel: r.countdown_label || '', countdownEnd: r.countdown_end || 'clock',
+    countdownKind: r.countdown_kind || 'time', countdownTimeOfDay: r.countdown_time_of_day || '19:00',
+    countdownDays: r.countdown_days || 0, countdownHours: r.countdown_hours || 0, countdownMinutes: r.countdown_minutes != null ? r.countdown_minutes : 10
   };
 }
 
@@ -749,12 +836,12 @@ async function commit(){
   const row = toRow(state);
   const missing = [];
   let lastError = null;
-  for(let attempt = 0; attempt < 8; attempt++){
+  for(let attempt = 0; attempt < 12; attempt++){
     const {error} = await sb.from(TABLE).upsert(row);
     if(!error){ lastError = null; break; }
     lastError = error;
     const msg = error.message || '';
-    const match = /column [`"']?([a-zA-Z_]+)[`"']?/i.exec(msg) || /[`"']([a-zA-Z_]+)[`"'] column/i.exec(msg);
+    const match = /[`"']([a-zA-Z_]+)[`"']\s*column/i.exec(msg) || /column\s*[`"']([a-zA-Z_]+)[`"']/i.exec(msg);
     if(match && Object.prototype.hasOwnProperty.call(row, match[1]) && match[1] !== 'id'){
       missing.push(match[1]);
       delete row[match[1]];
@@ -765,16 +852,38 @@ async function commit(){
   if(lastError){
     el('status').textContent = 'Falha ao salvar: ' + lastError.message;
   } else if(missing.length){
-    el('status').textContent = 'Aplicado ✓ — crie no Supabase as colunas: ' + missing.join(', ');
+    el('status').textContent = 'Aplicado — crie no Supabase as colunas: ' + missing.join(', ');
   } else {
-    el('status').textContent = 'Aplicado ✓ ' + new Date().toLocaleTimeString('pt-BR');
+    el('status').textContent = 'Aplicado ' + new Date().toLocaleTimeString('pt-BR');
   }
   setTimeout(()=>{ suppressRemote = false; }, 800);
 }
 
 el('modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.mode=b.dataset.v; renderForm(); commit(); });
+el('cdKindSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.countdownKind = b.dataset.v; renderForm(); });
+el('cdDaysVal').addEventListener('input', e=>{ state.countdownDays = Math.max(0, Number(e.target.value) || 0); });
+el('cdHoursVal').addEventListener('input', e=>{ state.countdownHours = Math.max(0, Math.min(23, Number(e.target.value) || 0)); });
+el('cdMinutesVal').addEventListener('input', e=>{ state.countdownMinutes = Math.max(0, Math.min(59, Number(e.target.value) || 0)); });
+el('cdTimeOfDay').addEventListener('input', e=>{ state.countdownTimeOfDay = e.target.value; });
+el('cdStartBtn').addEventListener('click', ()=>{
+  let target;
+  if((state.countdownKind || 'time') === 'time'){
+    const val = el('cdTimeOfDay').value || '19:00';
+    const [hh, mm] = val.split(':').map(Number);
+    target = new Date();
+    target.setHours(hh, mm, 0, 0);
+    if(target.getTime() <= Date.now()) target.setDate(target.getDate() + 1);
+  } else {
+    const ms = ((state.countdownDays||0)*86400 + (state.countdownHours||0)*3600 + (state.countdownMinutes||0)*60) * 1000;
+    target = new Date(Date.now() + ms);
+  }
+  state.countdownTarget = target.toISOString();
+  renderForm();
+  commit();
+});
+el('countdownLabel').addEventListener('input', e=>{ state.countdownLabel = e.target.value; renderPreview(); scheduleSave(); });
+el('cdEndSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.countdownEnd = b.dataset.v; renderForm(); commit(); });
 el('secSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.showSeconds = b.dataset.v==='1'; renderForm(); scheduleSave(); });
-el('oriSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.orientation = b.dataset.v; renderForm(); commit(); });
 el('animSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageAnim = b.dataset.v; renderForm(); commit(); });
 el('speedSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageSpeed = b.dataset.v; renderForm(); commit(); });
 el('glowSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.glow = b.dataset.v==='1'; renderForm(); commit(); });
@@ -789,10 +898,10 @@ el('saveBtn').addEventListener('click', commit);
 el('forceReloadBtn').addEventListener('click', async ()=>{
   el('forceReloadBtn').disabled = true;
   const {error} = await sb.from(TABLE).update({reload_token: new Date().toISOString()}).eq('id', ROW_ID);
-  el('reloadStatus').textContent = error ? ('Falha: ' + error.message) : ('Comando enviado ✓ ' + new Date().toLocaleTimeString('pt-BR'));
+  el('reloadStatus').textContent = error ? ('Falha: ' + error.message) : ('Comando enviado ' + new Date().toLocaleTimeString('pt-BR'));
   el('forceReloadBtn').disabled = false;
 });
-setInterval(()=>{ if(state.mode==='clock') renderPreview(); }, 1000);
+setInterval(()=>{ if(state.mode==='clock' || state.mode==='countdown') renderPreview(); }, 1000);
 
 renderForm();
 
