@@ -18,12 +18,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   *{box-sizing:border-box;}
-  html,body{height:100%;margin:0;background:#000;}
+  html,body{height:100%;margin:0;background:#000;overflow:hidden;}
   #screen{
     position:fixed; top:50%; left:50%; display:flex; align-items:center; justify-content:center;
-    padding:4vw; text-align:center; overflow:hidden; transition:background .5s ease, color .5s ease;
-    padding-top:calc(4vw + env(safe-area-inset-top,0px));
-    padding-bottom:calc(4vw + env(safe-area-inset-bottom,0px));
+    text-align:center; overflow:hidden; transition:background .5s ease, color .5s ease;
     font-family:'Share Tech Mono', monospace;
   }
   #screenContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap;
@@ -63,21 +61,52 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
-  font_family: "'Orbitron', sans-serif", font_size: 12, message_duration: 15, show_seconds: true,
+  font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
   updated_at: null
 };
 
-const screen = document.getElementById('screen');
+const screenEl = document.getElementById('screen');
+const content = document.getElementById('screenContent');
 const main = document.getElementById('screenMain');
 const sub = document.getElementById('screenSub');
 
 let clockTimer = null, revertTimer = null, currentCfg = DEFAULT_CONFIG;
 
+/* ===== AJUSTE AUTOMÁTICO: o texto sempre ocupa a tela inteira ===== */
+const measureCanvas = document.createElement('canvas');
+const measureCtx = measureCanvas.getContext('2d');
+
+function widestLineWidth(text, fontPx, fontFamily){
+  measureCtx.font = `700 ${fontPx}px ${fontFamily}`;
+  const lines = String(text || ' ').split('\n');
+  return Math.max(...lines.map(l => measureCtx.measureText(l || ' ').width), 1);
+}
+
+function fitDisplay(){
+  const family = currentCfg.font_family;
+  const hasSub = !!sub.textContent;
+  const innerW = screenEl.clientWidth * 0.9;
+  const innerH = screenEl.clientHeight * 0.86;
+  const lineCount = String(main.textContent || ' ').split('\n').length;
+
+  const REF = 200;
+  const refW = widestLineWidth(main.textContent, REF, family);
+  const sizeByWidth = (innerW / refW) * REF;
+
+  const lineHeightFactor = 1.15 * lineCount;
+  const subFactor = hasSub ? 0.62 : 0; // espaço extra da linha de data/sub
+  const sizeByHeight = innerH / (lineHeightFactor + subFactor);
+
+  const scale = (currentCfg.font_size || 100) / 100;
+  const fontPx = Math.max(14, Math.min(sizeByWidth, sizeByHeight) * scale);
+
+  content.style.fontSize = fontPx + 'px';
+}
+
 function styleScreen(cfg){
-  screen.style.background = cfg.bg_color;
-  screen.style.color = cfg.font_color;
-  screen.style.fontFamily = cfg.font_family;
-  main.style.fontSize = cfg.font_size + 'vw';
+  screenEl.style.background = cfg.bg_color;
+  screenEl.style.color = cfg.font_color;
+  screenEl.style.fontFamily = cfg.font_family;
 }
 
 function tickClock(){
@@ -87,6 +116,7 @@ function tickClock(){
     : {hour:'2-digit',minute:'2-digit',hour12:false};
   main.textContent = now.toLocaleTimeString('pt-BR', opts);
   sub.textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+  fitDisplay();
 }
 
 function showClock(){
@@ -99,6 +129,7 @@ function showMessage(text){
   clearInterval(clockTimer);
   sub.textContent = '';
   main.textContent = text || '';
+  fitDisplay();
 }
 
 function applyConfig(cfg){
@@ -120,7 +151,7 @@ applyConfig(DEFAULT_CONFIG);
 
 async function loadInitial(){
   const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
-  if(error || !data){ screen.classList.add('offline'); return; }
+  if(error || !data){ screenEl.classList.add('offline'); return; }
   applyConfig(Object.assign({}, DEFAULT_CONFIG, data));
 }
 
@@ -130,15 +161,15 @@ function subscribeRealtime(){
       if(payload.new) applyConfig(Object.assign({}, DEFAULT_CONFIG, payload.new));
     })
     .subscribe((status)=>{
-      if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') screen.classList.add('offline');
-      if(status === 'SUBSCRIBED') screen.classList.remove('offline');
+      if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') screenEl.classList.add('offline');
+      if(status === 'SUBSCRIBED') screenEl.classList.remove('offline');
     });
 }
 
 loadInitial();
 subscribeRealtime();
-// nova checagem a cada 30s como respaldo, caso o realtime caia
-setInterval(loadInitial, 30000);
+// checagem de respaldo a cada 1s — garante que não passe de 1s de atraso mesmo se o realtime falhar
+setInterval(loadInitial, 1000);
 
 /* ===== ROTAÇÃO (por aparelho, fica salva neste celular) ===== */
 const ROT_KEY = 'letreiroRotationDeg';
@@ -147,9 +178,10 @@ let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
 function applyRotation(){
   const vw = window.innerWidth, vh = window.innerHeight;
   const swapped = (rotation === 90 || rotation === 270);
-  screen.style.width = (swapped ? vh : vw) + 'px';
-  screen.style.height = (swapped ? vw : vh) + 'px';
-  screen.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+  screenEl.style.width = (swapped ? vh : vw) + 'px';
+  screenEl.style.height = (swapped ? vw : vh) + 'px';
+  screenEl.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+  fitDisplay();
 }
 
 document.getElementById('rotateBtn').addEventListener('click', ()=>{
