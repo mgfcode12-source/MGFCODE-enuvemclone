@@ -20,21 +20,29 @@
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;background:#000;overflow:hidden;}
   #screen{
-    position:fixed; top:50%; left:50%; display:flex; align-items:center; justify-content:center;
-    text-align:center; overflow:hidden; transition:background .5s ease, color .5s ease;
+    position:fixed; top:50%; left:50%;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center; overflow:hidden;
+    padding:0; margin:0;
+    transition:background .5s ease, color .5s ease;
     font-family:'Share Tech Mono', monospace;
   }
-  #screenContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap;}
-  #screenSub{display:none !important;}
-  #screenMain{
-    width:100%;
-    text-transform:uppercase;
-    letter-spacing:.045em;
-    font-variant-numeric:tabular-nums;
+  #screenContent{
+    width:100%; height:100%; margin:0; padding:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    line-height:1.15; word-wrap:break-word; white-space:pre-wrap;
   }
+  #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
   #screen.offline #screenContent{opacity:.35;}
 
-  #rotateBtn{display:none !important;}
+  #rotateBtn{
+    position:fixed; bottom:calc(14px + env(safe-area-inset-bottom,0px)); right:calc(14px + env(safe-area-inset-right,0px));
+    z-index:20; width:46px; height:46px; border-radius:50%; border:none;
+    background:rgba(255,255,255,.06); color:#fff; opacity:.16;
+    font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center;
+    transition:opacity .2s ease; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  }
+  #rotateBtn:active{opacity:.55;}
 </style>
 </head>
 <body>
@@ -56,9 +64,9 @@ const ROW_ID = 'main';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DEFAULT_CONFIG = {
-  mode: 'clock', message: 'BEM-VINDO!', bg_color: '#050505', font_color: '#ffb000',
-  font_family: "'VT323', monospace", font_size: 100, message_duration: 15, show_seconds: true,
-  orientation: 'landscape', message_anim: 'none', glow: false,
+  mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
+  font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
+  orientation: 'auto', message_anim: 'none', glow: false,
   countdown_target: null, countdown_label: '', countdown_end: 'clock',
   schedule_enabled: false, schedule: [], updated_at: null
 };
@@ -82,8 +90,14 @@ function widestLineWidth(text, fontPx, fontFamily){
 
 function fitDisplay(){
   const family = currentCfg.font_family;
-  const innerW = screenEl.clientWidth * 0.96;
-  const innerH = screenEl.clientHeight * 0.92;
+  const hasSub = !!sub.textContent;
+  // Em 90°/270°, largura e altura do elemento ficam trocadas pelo CSS.
+  // O cálculo precisa usar as dimensões VISUAIS para manter o texto centralizado.
+  const rotated = (rotation === 90 || rotation === 270);
+  const visualW = rotated ? screenEl.clientHeight : screenEl.clientWidth;
+  const visualH = rotated ? screenEl.clientWidth : screenEl.clientHeight;
+  const innerW = visualW * 0.9;
+  const innerH = visualH * 0.86;
   const lineCount = String(main.textContent || ' ').split('\n').length;
 
   const REF = 200;
@@ -91,7 +105,8 @@ function fitDisplay(){
   const sizeByWidth = (innerW / refW) * REF;
 
   const lineHeightFactor = 1.15 * lineCount;
-  const sizeByHeight = innerH / lineHeightFactor;
+  const subFactor = hasSub ? 0.62 : 0; // espaço extra da linha de data/sub
+  const sizeByHeight = innerH / (lineHeightFactor + subFactor);
 
   const scale = (currentCfg.font_size || 100) / 100;
   const fontPx = Math.max(14, Math.min(sizeByWidth, sizeByHeight) * scale);
@@ -100,42 +115,29 @@ function fitDisplay(){
 }
 
 /* ===== ROTAÇÃO ===== */
-// ===== ORIENTAÇÃO DEFINITIVA =====
-// Nunca usamos uma rotação salva no localStorage: ela poderia ficar presa em 90°
-// e deixar o desktop deitado. A orientação visual é decidida pelo viewport atual.
-let rotation = 0;
+const ROT_KEY = 'letreiroRotationDeg';
+const rotateBtn = document.getElementById('rotateBtn');
+let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
 
 function applyRotation(){
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const portrait = vh > vw;
-
-  // Desktop/tablet/celular já em paisagem: NÃO gira.
-  // Celular em retrato: gira somente o painel visual para formar uma tela 16:9.
-  rotation = portrait ? 90 : 0;
-
-  if(rotation === 90){
-    screenEl.style.width = vh + 'px';
-    screenEl.style.height = vw + 'px';
-    screenEl.style.transform = 'translate(-50%, -50%) rotate(90deg)';
-  } else {
-    screenEl.style.width = vw + 'px';
-    screenEl.style.height = vh + 'px';
-    screenEl.style.transform = 'translate(-50%, -50%)';
-  }
-
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const swapped = (rotation === 90 || rotation === 270);
+  screenEl.style.width = (swapped ? vh : vw) + 'px';
+  screenEl.style.height = (swapped ? vw : vh) + 'px';
+  screenEl.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
   refitCurrent();
 }
 
+// Se o admin definir uma orientação fixa (vertical/horizontal), ela vale para
+// todos os aparelhos e o botão manual fica escondido. Em "Automático" cada
+// celular guarda sua própria rotação (botão ⟳ continua disponível).
 function syncOrientation(cfg){
-  // A orientação física deve ser paisagem. O bloqueio é uma melhoria quando
-  // o navegador permite; a renderização visual continua funcionando sem ele.
+  const forced = cfg.orientation === 'landscape' || cfg.orientation === 'portrait';
+  if(cfg.orientation === 'landscape') rotation = 90;
+  else if(cfg.orientation === 'portrait') rotation = 0;
+  localStorage.setItem(ROT_KEY, rotation);
+  rotateBtn.style.display = forced ? 'none' : 'flex';
   applyRotation();
-  try{
-    if(screen.orientation && screen.orientation.lock){
-      screen.orientation.lock('landscape').catch(()=>{});
-    }
-  }catch(e){}
 }
 
 function styleScreen(cfg){
@@ -153,10 +155,11 @@ function styleScreen(cfg){
 
 function tickClock(){
   const now = new Date();
-  // O letreiro mostra SOMENTE hora e minuto. Nunca exibe data, dia ou mês.
-  const opts = {hour:'2-digit', minute:'2-digit', hour12:false};
+  const opts = currentCfg.show_seconds
+    ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
+    : {hour:'2-digit',minute:'2-digit',hour12:false};
   main.textContent = now.toLocaleTimeString('pt-BR', opts);
-  sub.textContent = '';
+  sub.textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
   fitDisplay();
 }
 
@@ -202,7 +205,7 @@ function tickCountdown(){
   const body = formatCountdownParts(currentCfg);
   if(body === 'DONE'){ showClock(); return; }
   main.textContent = body || '0:00';
-  sub.textContent = '';
+  sub.textContent = currentCfg.countdown_label || '';
   fitDisplay();
 }
 
@@ -215,7 +218,10 @@ function showCountdown(){
 
 function playScroll(direction){
   const family = currentCfg.font_family;
-  const innerH = screenEl.clientHeight * 0.8;
+  const rotated = (rotation === 90 || rotation === 270);
+  const visualH = rotated ? screenEl.clientWidth : screenEl.clientHeight;
+  const visualW = rotated ? screenEl.clientHeight : screenEl.clientWidth;
+  const innerH = visualH * 0.8;
   const scale = (currentCfg.font_size || 100) / 100;
   const fontPx = Math.max(14, (innerH / 1.15) * scale);
   content.style.fontSize = fontPx + 'px';
@@ -226,7 +232,7 @@ function playScroll(direction){
   content.style.width = 'max-content';
 
   const textWidth = widestLineWidth(main.textContent, fontPx, family);
-  const screenW = screenEl.clientWidth;
+  const screenW = visualW;
   const distance = textWidth + screenW;
   const speedPxPerSec = 130;
   const duration = Math.max(4000, (distance / speedPxPerSec) * 1000);
@@ -418,23 +424,13 @@ subscribeRealtime();
 // checagem de respaldo a cada 1s — garante que não passe de 1s de atraso mesmo se o realtime falhar
 setInterval(loadInitial, 1000);
 
+document.getElementById('rotateBtn').addEventListener('click', ()=>{
+  rotation = (rotation + 90) % 360;
+  localStorage.setItem(ROT_KEY, rotation);
+  applyRotation();
+});
 window.addEventListener('resize', applyRotation);
-window.addEventListener('orientationchange', ()=>setTimeout(applyRotation, 80));
 applyRotation();
-
-// Primeiro toque: tenta liberar tela cheia e travar em paisagem quando o navegador permitir.
-document.addEventListener('click', ()=>{
-  try{
-    if(document.documentElement.requestFullscreen && !document.fullscreenElement){
-      document.documentElement.requestFullscreen().catch(()=>{});
-    }
-  }catch(e){}
-  try{
-    if(screen.orientation && screen.orientation.lock){
-      screen.orientation.lock('landscape').catch(()=>{});
-    }
-  }catch(e){}
-},{once:true});
 </script>
 </body>
 </html>
