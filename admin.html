@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Admin - Letreiro LED</title>
+<title>Admin — Letreiro LED</title>
 <meta name="theme-color" content="#0b0d10">
 <link rel="icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -216,14 +216,30 @@
           <div class="card" id="cardModo">
             <h3>Modo de exibição</h3>
             <div class="row">
-              <div class="seg" id="modeSeg">
+              <div class="seg wrap" id="modeSeg">
                 <button data-v="clock">Relógio</button>
                 <button data-v="message">Mensagem</button>
+                <button data-v="countdown">Contagem regressiva</button>
               </div>
             </div>
             <div class="row" id="msgRow">
               <label>Mensagem</label>
               <textarea id="message" maxlength="200" placeholder="Digite a mensagem…"></textarea>
+            </div>
+            <div class="row" id="cdRow">
+              <label>Contar até</label>
+              <input type="datetime-local" id="countdownTarget">
+            </div>
+            <div class="row" id="cdLabelRow">
+              <label>Rótulo (opcional, aparece junto com o tempo)</label>
+              <input type="text" id="countdownLabel" maxlength="60" placeholder="Ex: Faltam para o culto">
+            </div>
+            <div class="row" id="cdEndRow">
+              <label>Ao chegar a zero</label>
+              <div class="seg" id="cdEndSeg">
+                <button data-v="clock">Voltar ao relógio</button>
+                <button data-v="zeros">Mostrar zerado</button>
+              </div>
             </div>
             <div class="row" id="durRow">
               <label>Duração antes de voltar ao relógio <span class="rangeVal" id="durVal"></span></label>
@@ -422,6 +438,7 @@ const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bgColor: '#050505', fontColor: '#39ff88',
   fontFamily: "'Orbitron', sans-serif", fontSize: 100, messageDuration: 15, showSeconds: true,
   orientation: 'landscape', messageAnim: 'scroll-left', messageSpeed: 'normal', glow: false, keepAwake: true,
+  countdownTarget: '', countdownLabel: '', countdownEnd: 'clock',
   scheduleEnabled: false, schedule: []
 };
 
@@ -502,6 +519,9 @@ function refreshRowVisibility(){
   el('animRow').style.display = state.mode === 'message' ? '' : 'none';
   el('speedRow').style.display = (state.mode === 'message' && state.messageAnim && state.messageAnim.indexOf('scroll') === 0) ? '' : 'none';
   el('secRow').style.display = state.mode === 'clock' ? '' : 'none';
+  el('cdRow').style.display = state.mode === 'countdown' ? '' : 'none';
+  el('cdLabelRow').style.display = state.mode === 'countdown' ? '' : 'none';
+  el('cdEndRow').style.display = state.mode === 'countdown' ? '' : 'none';
 }
 function renderForm(){
   setSeg(el('modeSeg'), state.mode);
@@ -518,6 +538,9 @@ function renderForm(){
   el('fontFamily').value = state.fontFamily;
   el('fontSize').value = state.fontSize;
   el('sizeVal').textContent = state.fontSize + '%';
+  el('countdownTarget').value = state.countdownTarget || '';
+  el('countdownLabel').value = state.countdownLabel || '';
+  setSeg(el('cdEndSeg'), state.countdownEnd || 'clock');
   refreshRowVisibility();
   renderSchedule();
   renderPreview();
@@ -529,11 +552,40 @@ function renderPreview(){
   box.style.fontFamily = state.fontFamily;
   if(state.mode === 'message'){
     el('previewMain').textContent = state.message || ' ';
+  } else if(state.mode === 'countdown'){
+    const cd = formatCountdown();
+    if(cd === null){
+      const now = new Date();
+      el('previewMain').textContent = now.toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
+    } else {
+      el('previewMain').textContent = cd;
+    }
   } else {
     const now = new Date();
     el('previewMain').textContent = now.toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
   }
   fitPreviewText();
+}
+function formatCountdown(){
+  if(!state.countdownTarget) return state.countdownLabel ? state.countdownLabel + '\n--:--:--:--' : '--:--:--:--';
+  const target = new Date(state.countdownTarget).getTime();
+  const diff = target - Date.now();
+  let body;
+  if(isNaN(target)){
+    body = '--:--:--:--';
+  } else if(diff <= 0){
+    body = state.countdownEnd === 'zeros' ? '00:00:00:00' : null;
+  } else {
+    const totalSec = Math.floor(diff / 1000);
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = n => String(n).padStart(2, '0');
+    body = `${pad(d)}:${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+  if(body === null) return null;
+  return state.countdownLabel ? state.countdownLabel + '\n' + body : body;
 }
 window.addEventListener('resize', ()=> fitPreviewText());
 function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 450); }
@@ -708,6 +760,7 @@ function toRow(s){
     show_seconds: s.showSeconds, orientation: s.orientation, message_anim: s.messageAnim,
     message_speed: s.messageSpeed, keep_awake: s.keepAwake,
     glow: s.glow, schedule_enabled: s.scheduleEnabled, schedule: s.schedule,
+    countdown_target: s.countdownTarget, countdown_label: s.countdownLabel, countdown_end: s.countdownEnd,
     updated_at: new Date().toISOString()
   };
 }
@@ -718,7 +771,8 @@ function fromRow(r){
     showSeconds: r.show_seconds, orientation: 'landscape',
     messageAnim: r.message_anim || 'none', messageSpeed: r.message_speed || 'normal',
     keepAwake: r.keep_awake !== false, glow: !!r.glow,
-    scheduleEnabled: !!r.schedule_enabled, schedule: Array.isArray(r.schedule) ? r.schedule : []
+    scheduleEnabled: !!r.schedule_enabled, schedule: Array.isArray(r.schedule) ? r.schedule : [],
+    countdownTarget: r.countdown_target || '', countdownLabel: r.countdown_label || '', countdownEnd: r.countdown_end || 'clock'
   };
 }
 
@@ -751,6 +805,9 @@ async function commit(){
 }
 
 el('modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.mode=b.dataset.v; renderForm(); commit(); });
+el('countdownTarget').addEventListener('input', e=>{ state.countdownTarget = e.target.value; renderPreview(); scheduleSave(); });
+el('countdownLabel').addEventListener('input', e=>{ state.countdownLabel = e.target.value; renderPreview(); scheduleSave(); });
+el('cdEndSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.countdownEnd = b.dataset.v; renderForm(); commit(); });
 el('secSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.showSeconds = b.dataset.v==='1'; renderForm(); scheduleSave(); });
 el('animSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageAnim = b.dataset.v; renderForm(); commit(); });
 el('speedSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageSpeed = b.dataset.v; renderForm(); commit(); });
@@ -769,7 +826,7 @@ el('forceReloadBtn').addEventListener('click', async ()=>{
   el('reloadStatus').textContent = error ? ('Falha: ' + error.message) : ('Comando enviado ' + new Date().toLocaleTimeString('pt-BR'));
   el('forceReloadBtn').disabled = false;
 });
-setInterval(()=>{ if(state.mode==='clock') renderPreview(); }, 1000);
+setInterval(()=>{ if(state.mode==='clock' || state.mode==='countdown') renderPreview(); }, 1000);
 
 renderForm();
 
