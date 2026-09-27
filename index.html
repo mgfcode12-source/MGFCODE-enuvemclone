@@ -25,6 +25,7 @@
     font-family:'Share Tech Mono', monospace;
   }
   #screenContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap;}
+  #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
   #screen.offline #screenContent{opacity:.35;}
 
   #rotateBtn{
@@ -41,6 +42,7 @@
 <div id="screen">
   <div id="screenContent">
     <div id="screenMain">--:--:--</div>
+    <div id="screenSub"></div>
   </div>
 </div>
 <button id="rotateBtn" aria-label="Girar tela" title="Girar tela">⟳</button>
@@ -57,34 +59,17 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
   font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
-  orientation: 'auto', message_anim: 'scroll-left', message_speed: 'normal', keep_awake: true, glow: false,
+  orientation: 'auto', message_anim: 'none', glow: false,
+  countdown_target: null, countdown_label: '', countdown_end: 'clock',
   schedule_enabled: false, schedule: [], updated_at: null
 };
 
 const screenEl = document.getElementById('screen');
 const content = document.getElementById('screenContent');
 const main = document.getElementById('screenMain');
+const sub = document.getElementById('screenSub');
 
 let clockTimer = null, revertTimer = null, currentCfg = DEFAULT_CONFIG;
-
-/* ===== WAKE LOCK — a tela nunca apaga, como em vídeo do YouTube ===== */
-let wakeLock = null;
-async function requestWakeLock(){
-  try{
-    if('wakeLock' in navigator){
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => { wakeLock = null; });
-    }
-  }catch(e){ /* alguns navegadores recusam se a aba não está em foco — tudo bem, tentamos de novo depois */ }
-}
-function releaseWakeLock(){
-  if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
-}
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible' && currentCfg.keep_awake !== false) requestWakeLock();
-});
-// alguns Android soltam o wake lock sozinhos depois de um tempo — reforça periodicamente
-setInterval(() => { if(currentCfg.keep_awake !== false) requestWakeLock(); }, 20000);
 
 /* ===== AJUSTE AUTOMÁTICO: o texto sempre ocupa a tela inteira ===== */
 const measureCanvas = document.createElement('canvas');
@@ -98,8 +83,9 @@ function widestLineWidth(text, fontPx, fontFamily){
 
 function fitDisplay(){
   const family = currentCfg.font_family;
-  const innerW = screenEl.clientWidth * 0.92;
-  const innerH = screenEl.clientHeight * 0.9;
+  const hasSub = !!sub.textContent;
+  const innerW = screenEl.clientWidth * 0.9;
+  const innerH = screenEl.clientHeight * 0.86;
   const lineCount = String(main.textContent || ' ').split('\n').length;
 
   const REF = 200;
@@ -107,7 +93,8 @@ function fitDisplay(){
   const sizeByWidth = (innerW / refW) * REF;
 
   const lineHeightFactor = 1.15 * lineCount;
-  const sizeByHeight = innerH / lineHeightFactor;
+  const subFactor = hasSub ? 0.62 : 0; // espaço extra da linha de data/sub
+  const sizeByHeight = innerH / (lineHeightFactor + subFactor);
 
   const scale = (currentCfg.font_size || 100) / 100;
   const fontPx = Math.max(14, Math.min(sizeByWidth, sizeByHeight) * scale);
@@ -115,22 +102,10 @@ function fitDisplay(){
   content.style.fontSize = fontPx + 'px';
 }
 
-/* ===== ROTAÇÃO / PAISAGEM =====
-   Antes o app forçava rotação mesmo quando o celular físico já estava deitado,
-   girando o texto duas vezes (o "bug" da tela deitada). Agora comparamos o
-   modo desejado (auto/paisagem/retrato) com a orientação REAL do aparelho e
-   só giramos via CSS quando as duas divergem — se você deitar o celular no
-   tripé, ele já fica em paisagem naturalmente, sem giro extra. */
+/* ===== ROTAÇÃO ===== */
 const ROT_KEY = 'letreiroRotationDeg';
 const rotateBtn = document.getElementById('rotateBtn');
 let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
-
-function isDeviceLandscape(){
-  if(screen.orientation && screen.orientation.type){
-    return screen.orientation.type.indexOf('landscape') === 0;
-  }
-  return window.innerWidth > window.innerHeight;
-}
 
 function applyRotation(){
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -141,25 +116,22 @@ function applyRotation(){
   refitCurrent();
 }
 
+// Se o admin definir uma orientação fixa (vertical/horizontal), ela vale para
+// todos os aparelhos e o botão manual fica escondido. Em "Automático" cada
+// celular guarda sua própria rotação (botão ⟳ continua disponível).
 function syncOrientation(cfg){
   const forced = cfg.orientation === 'landscape' || cfg.orientation === 'portrait';
-  if(forced){
-    const wantLandscape = cfg.orientation === 'landscape';
-    const isLandscape = isDeviceLandscape();
-    // só gira via CSS se o celular físico ainda não está na orientação desejada
-    rotation = (wantLandscape === isLandscape) ? 0 : 90;
-    rotateBtn.style.display = 'none';
-  } else {
-    rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
-    rotateBtn.style.display = 'flex';
-  }
+  if(cfg.orientation === 'landscape') rotation = 90;
+  else if(cfg.orientation === 'portrait') rotation = 0;
+  localStorage.setItem(ROT_KEY, rotation);
+  rotateBtn.style.display = forced ? 'none' : 'flex';
   applyRotation();
 }
 
 function styleScreen(cfg){
-  screenEl.style.background = cfg.bg_color || DEFAULT_CONFIG.bg_color;
-  screenEl.style.color = cfg.font_color || DEFAULT_CONFIG.font_color;
-  screenEl.style.fontFamily = cfg.font_family || DEFAULT_CONFIG.font_family;
+  screenEl.style.background = cfg.bg_color;
+  screenEl.style.color = cfg.font_color;
+  screenEl.style.fontFamily = cfg.font_family;
   if(cfg.glow){
     content.style.textShadow = '0 0 .08em currentColor, 0 0 .22em currentColor';
     content.style.filter = 'drop-shadow(0 0 3px currentColor)';
@@ -170,32 +142,24 @@ function styleScreen(cfg){
 }
 
 function tickClock(){
-  try{
-    const now = new Date();
-    const opts = currentCfg.show_seconds
-      ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
-      : {hour:'2-digit',minute:'2-digit',hour12:false};
-    main.textContent = now.toLocaleTimeString('pt-BR', opts);
-    fitDisplay();
-  }catch(e){
-    console.error('Erro no relógio, forçando recuperação:', e);
-    hardReset();
-  }
+  const now = new Date();
+  const opts = currentCfg.show_seconds
+    ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
+    : {hour:'2-digit',minute:'2-digit',hour12:false};
+  main.textContent = now.toLocaleTimeString('pt-BR', opts);
+  sub.textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+  fitDisplay();
 }
 
 let activeAnim = null;
 function stopAnim(){
-  if(activeAnim){ try{ activeAnim.cancel(); }catch(e){} activeAnim = null; }
-  // limpa TODO estilo que qualquer animação possa ter deixado — isso é o que
-  // evitava a tela travar preta ao trocar de "mensagem" pra "relógio"
+  if(activeAnim){ activeAnim.cancel(); activeAnim = null; }
   content.style.position = '';
   content.style.top = '';
   content.style.left = '';
   content.style.width = '';
   content.style.whiteSpace = '';
   content.style.transform = '';
-  content.style.opacity = '';
-  content.style.fontSize = '';
 }
 
 function showClock(){
@@ -205,9 +169,41 @@ function showClock(){
   clockTimer = setInterval(tickClock, 1000);
 }
 
-/* Efeito letreiro de aeroporto: a mensagem entra de um lado, atravessa a tela
-   inteira e sai do outro, em loop contínuo — pensado para quem está longe,
-   ex.: no púlpito, avistar de relance. */
+function formatCountdownParts(cfg){
+  if(!cfg.countdown_target) return null;
+  const target = new Date(cfg.countdown_target).getTime();
+  if(isNaN(target)) return null;
+  const diff = target - Date.now();
+  if(diff <= 0){
+    if(cfg.countdown_end === 'zeros') return '0:00';
+    return 'DONE';
+  }
+  const totalSec = Math.floor(diff / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad2n = n => String(n).padStart(2, '0');
+  if(d > 0) return `${d}:${pad2n(h)}:${pad2n(m)}:${pad2n(s)}`;
+  if(h > 0) return `${h}:${pad2n(m)}:${pad2n(s)}`;
+  return `${m}:${pad2n(s)}`;
+}
+
+function tickCountdown(){
+  const body = formatCountdownParts(currentCfg);
+  if(body === 'DONE'){ showClock(); return; }
+  main.textContent = body || '0:00';
+  sub.textContent = currentCfg.countdown_label || '';
+  fitDisplay();
+}
+
+function showCountdown(){
+  stopAnim();
+  clearInterval(clockTimer);
+  tickCountdown();
+  clockTimer = setInterval(tickCountdown, 1000);
+}
+
 function playScroll(direction){
   const family = currentCfg.font_family;
   const innerH = screenEl.clientHeight * 0.8;
@@ -223,8 +219,7 @@ function playScroll(direction){
   const textWidth = widestLineWidth(main.textContent, fontPx, family);
   const screenW = screenEl.clientWidth;
   const distance = textWidth + screenW;
-  const speedMap = {slow: 80, normal: 130, fast: 200};
-  const speedPxPerSec = speedMap[currentCfg.message_speed] || 130;
+  const speedPxPerSec = 130;
   const duration = Math.max(4000, (distance / speedPxPerSec) * 1000);
 
   const startX = direction === 'scroll-left' ? screenW : -textWidth;
@@ -284,56 +279,18 @@ function playBlink(){
 }
 
 function dispatchAnim(anim){
-  try{
-    if(anim === 'scroll-left' || anim === 'scroll-right'){
-      playScroll(anim);
-    } else if(anim === 'drop' || anim === 'rise'){
-      playVertical(anim);
-    } else if(anim === 'fade'){
-      playFade();
-    } else if(anim === 'blink'){
-      playBlink();
-    } else {
-      fitDisplay();
-    }
-  }catch(e){
-    console.error('Erro ao animar, voltando ao texto estático:', e);
-    stopAnim();
+  if(anim === 'scroll-left' || anim === 'scroll-right'){
+    playScroll(anim);
+  } else if(anim === 'drop' || anim === 'rise'){
+    playVertical(anim);
+  } else if(anim === 'fade'){
+    playFade();
+  } else if(anim === 'blink'){
+    playBlink();
+  } else {
     fitDisplay();
   }
 }
-
-/* ===== Recuperação automática =====
-   Se qualquer coisa der errado (config incompleta, erro de cálculo, etc.),
-   isso garante que a tela nunca fique travada/preta: limpa tudo e volta
-   pro relógio, que é o modo mais simples e sempre funciona. */
-function hardReset(){
-  try{
-    clearTimeout(revertTimer);
-    clearInterval(clockTimer);
-    stopAnim();
-    screenEl.style.background = (currentCfg && currentCfg.bg_color) || DEFAULT_CONFIG.bg_color;
-    screenEl.style.color = (currentCfg && currentCfg.font_color) || DEFAULT_CONFIG.font_color;
-    showClock();
-  }catch(e){
-    // último recurso: recarrega a página
-    console.error('Falha na recuperação, recarregando a página:', e);
-    setTimeout(()=> location.reload(), 1500);
-  }
-}
-window.addEventListener('error', ()=> hardReset());
-window.addEventListener('unhandledrejection', ()=> hardReset());
-
-/* Vigia: a cada 4s confere se, estando em modo relógio, o texto realmente
-   parece um horário e está visível. Se não estiver, força a recuperação —
-   pega qualquer trava silenciosa que passe despercebida pelos try/catch. */
-setInterval(()=>{
-  if(currentCfg.mode !== 'message'){
-    const looksLikeTime = /\d{1,2}:\d{2}/.test(main.textContent || '');
-    const visible = parseFloat(getComputedStyle(content).opacity || '1') > 0.05;
-    if(!looksLikeTime || !visible) hardReset();
-  }
-}, 4000);
 
 function refitCurrent(){
   const anim = currentCfg.mode === 'message' ? currentCfg.message_anim : null;
@@ -343,31 +300,28 @@ function refitCurrent(){
 function showMessage(text, anim){
   clearInterval(clockTimer);
   stopAnim();
+  sub.textContent = '';
   main.textContent = text || '';
   dispatchAnim(anim);
 }
 
 function applyConfig(cfg){
-  try{
-    currentCfg = cfg;
-    styleScreen(cfg);
-    syncOrientation(cfg);
-    if(cfg.keep_awake === false) releaseWakeLock(); else requestWakeLock();
-    clearTimeout(revertTimer);
-    if(cfg.mode === 'message'){
-      showMessage(cfg.message, cfg.message_anim);
-      if(!cfg.__scheduled){
-        const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
-        const elapsedSec = (Date.now() - updatedAt) / 1000;
-        const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
-        revertTimer = setTimeout(showClock, remaining * 1000);
-      }
-    } else {
-      showClock();
+  currentCfg = cfg;
+  styleScreen(cfg);
+  syncOrientation(cfg);
+  clearTimeout(revertTimer);
+  if(cfg.mode === 'message'){
+    showMessage(cfg.message, cfg.message_anim);
+    if(!cfg.__scheduled){
+      const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
+      const elapsedSec = (Date.now() - updatedAt) / 1000;
+      const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
+      revertTimer = setTimeout(showClock, remaining * 1000);
     }
-  }catch(e){
-    console.error('Erro ao aplicar configuração, recuperando:', e);
-    hardReset();
+  } else if(cfg.mode === 'countdown'){
+    showCountdown();
+  } else {
+    showClock();
   }
 }
 
@@ -421,26 +375,10 @@ setInterval(refreshEffective, 5000); // checa a cada 5s se cruzou algum horário
 let lastConfigKey = null;
 function configKey(cfg){ return JSON.stringify(cfg); }
 
-/* ===== Comando de recarga remota =====
-   O admin pode gravar um novo "reload_token" pra forçar TODOS os celulares
-   a recarregar a página do zero — útil quando a tela trava de um jeito que
-   nem o hardReset() acima resolve (ex.: precisa buscar uma versão nova do
-   arquivo), ou simplesmente quando você não tem acesso físico ao aparelho. */
-let lastReloadToken = undefined; // undefined = ainda não sabemos o valor atual
-function handleReloadToken(token){
-  if(!token) return;
-  if(lastReloadToken === undefined){ lastReloadToken = token; return; } // primeira leitura, não recarrega
-  if(token !== lastReloadToken){
-    lastReloadToken = token;
-    location.reload();
-  }
-}
-
 async function loadInitial(){
   const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
   if(error || !data){ screenEl.classList.add('offline'); return; }
   screenEl.classList.remove('offline');
-  handleReloadToken(data.reload_token);
   const merged = normalizeCfg(data);
   const key = configKey(merged);
   if(key === lastConfigKey) return; // nada mudou no banco
@@ -453,7 +391,6 @@ function subscribeRealtime(){
   sb.channel('letreiro-display')
     .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, (payload)=>{
       if(!payload.new) return;
-      handleReloadToken(payload.new.reload_token);
       const merged = normalizeCfg(payload.new);
       const key = configKey(merged);
       if(key === lastConfigKey) return;
@@ -477,10 +414,7 @@ document.getElementById('rotateBtn').addEventListener('click', ()=>{
   localStorage.setItem(ROT_KEY, rotation);
   applyRotation();
 });
-window.addEventListener('resize', ()=>{ syncOrientation(currentCfg); });
-if(screen.orientation && screen.orientation.addEventListener){
-  screen.orientation.addEventListener('change', ()=>{ syncOrientation(currentCfg); });
-}
+window.addEventListener('resize', applyRotation);
 applyRotation();
 </script>
 </body>
