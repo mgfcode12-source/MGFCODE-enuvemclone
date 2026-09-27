@@ -20,7 +20,7 @@
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;background:#000;}
   #screen{
-    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    position:fixed; top:50%; left:50%; display:flex; align-items:center; justify-content:center;
     padding:4vw; text-align:center; overflow:hidden; transition:background .5s ease, color .5s ease;
     padding-top:calc(4vw + env(safe-area-inset-top,0px));
     padding-bottom:calc(4vw + env(safe-area-inset-bottom,0px));
@@ -32,6 +32,15 @@
   }
   #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
   #screen.offline #screenContent{opacity:.35;}
+
+  #rotateBtn{
+    position:fixed; bottom:calc(14px + env(safe-area-inset-bottom,0px)); right:calc(14px + env(safe-area-inset-right,0px));
+    z-index:20; width:46px; height:46px; border-radius:50%; border:none;
+    background:rgba(255,255,255,.06); color:#fff; opacity:.16;
+    font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center;
+    transition:opacity .2s ease; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  }
+  #rotateBtn:active{opacity:.55;}
 </style>
 </head>
 <body>
@@ -41,6 +50,7 @@
     <div id="screenSub"></div>
   </div>
 </div>
+<button id="rotateBtn" aria-label="Girar tela" title="Girar tela">⟳</button>
 
 <script>
 /* ===== CONFIGURAÇÃO DO SUPABASE (mesmo projeto do Cloud MGF) ===== */
@@ -129,6 +139,26 @@ loadInitial();
 subscribeRealtime();
 // nova checagem a cada 30s como respaldo, caso o realtime caia
 setInterval(loadInitial, 30000);
+
+/* ===== ROTAÇÃO (por aparelho, fica salva neste celular) ===== */
+const ROT_KEY = 'letreiroRotationDeg';
+let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
+
+function applyRotation(){
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const swapped = (rotation === 90 || rotation === 270);
+  screen.style.width = (swapped ? vh : vw) + 'px';
+  screen.style.height = (swapped ? vw : vh) + 'px';
+  screen.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+}
+
+document.getElementById('rotateBtn').addEventListener('click', ()=>{
+  rotation = (rotation + 90) % 360;
+  localStorage.setItem(ROT_KEY, rotation);
+  applyRotation();
+});
+window.addEventListener('resize', applyRotation);
+applyRotation();
 </script>
 </body>
 </html>
