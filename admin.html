@@ -422,6 +422,14 @@
           <button id="saveBtn">Aplicar nas telas</button>
           <div id="status"></div>
         </div>
+        <div class="card" id="cardStatus" style="margin-top:18px;">
+          <h3><span class="ic">🚨</span> Emergência</h3>
+          <button id="forceReloadBtn" style="width:100%; padding:13px; border:none; border-radius:14px;
+            background:linear-gradient(135deg, var(--accent3), #1c78c9); color:#031320;
+            font-weight:800; font-size:13.5px; font-family:inherit; cursor:pointer;">🔄 Recarregar telas agora</button>
+          <div id="reloadStatus" style="text-align:center; font-size:12px; color:var(--text-dim); margin-top:11px; min-height:14px;"></div>
+          <div class="hint">Força TODOS os celulares conectados a recarregar a página, mesmo travados ou sem resposta — não muda nenhuma outra configuração.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -793,6 +801,12 @@ el('fontColor').addEventListener('input', e=>{ state.fontColor = e.target.value;
 el('fontFamily').addEventListener('change', e=>{ state.fontFamily = e.target.value; renderPreview(); commit(); });
 el('fontSize').addEventListener('input', e=>{ state.fontSize = Number(e.target.value); el('sizeVal').textContent = state.fontSize+'%'; renderPreview(); scheduleSave(); });
 el('saveBtn').addEventListener('click', commit);
+el('forceReloadBtn').addEventListener('click', async ()=>{
+  el('forceReloadBtn').disabled = true;
+  const {error} = await sb.from(TABLE).update({reload_token: new Date().toISOString()}).eq('id', ROW_ID);
+  el('reloadStatus').textContent = error ? ('Falha: ' + error.message) : ('Comando enviado ✓ ' + new Date().toLocaleTimeString('pt-BR'));
+  el('forceReloadBtn').disabled = false;
+});
 setInterval(()=>{ if(state.mode==='clock') renderPreview(); }, 1000);
 
 renderForm();
