@@ -59,7 +59,8 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
   font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
-  orientation: 'auto', message_anim: 'none', glow: false, updated_at: null
+  orientation: 'auto', message_anim: 'none', glow: false,
+  schedule_enabled: false, schedule: [], updated_at: null
 };
 
 const screenEl = document.getElementById('screen');
@@ -213,15 +214,51 @@ function playVertical(direction){
   );
 }
 
-function refitCurrent(){
-  const anim = currentCfg.mode === 'message' ? currentCfg.message_anim : null;
+function playFade(){
+  fitDisplay();
+  content.style.position = 'relative';
+  activeAnim = content.animate(
+    [
+      {opacity: 1, offset: 0},
+      {opacity: 0.12, offset: 0.5},
+      {opacity: 1, offset: 1}
+    ],
+    {duration: 3000, iterations: Infinity, easing: 'ease-in-out'}
+  );
+}
+
+function playBlink(){
+  fitDisplay();
+  content.style.position = 'relative';
+  activeAnim = content.animate(
+    [
+      {opacity: 1, offset: 0},
+      {opacity: 1, offset: 0.55},
+      {opacity: 0, offset: 0.6},
+      {opacity: 0, offset: 0.95},
+      {opacity: 1, offset: 1}
+    ],
+    {duration: 1200, iterations: Infinity, easing: 'steps(1, end)'}
+  );
+}
+
+function dispatchAnim(anim){
   if(anim === 'scroll-left' || anim === 'scroll-right'){
     playScroll(anim);
   } else if(anim === 'drop' || anim === 'rise'){
     playVertical(anim);
+  } else if(anim === 'fade'){
+    playFade();
+  } else if(anim === 'blink'){
+    playBlink();
   } else {
     fitDisplay();
   }
+}
+
+function refitCurrent(){
+  const anim = currentCfg.mode === 'message' ? currentCfg.message_anim : null;
+  dispatchAnim(anim);
 }
 
 function showMessage(text, anim){
@@ -229,14 +266,7 @@ function showMessage(text, anim){
   stopAnim();
   sub.textContent = '';
   main.textContent = text || '';
-
-  if(anim === 'scroll-left' || anim === 'scroll-right'){
-    playScroll(anim);
-  } else if(anim === 'drop' || anim === 'rise'){
-    playVertical(anim);
-  } else {
-    fitDisplay();
-  }
+  dispatchAnim(anim);
 }
 
 function applyConfig(cfg){
@@ -246,17 +276,63 @@ function applyConfig(cfg){
   clearTimeout(revertTimer);
   if(cfg.mode === 'message'){
     showMessage(cfg.message, cfg.message_anim);
-    const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
-    const elapsedSec = (Date.now() - updatedAt) / 1000;
-    const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
-    revertTimer = setTimeout(showClock, remaining * 1000);
+    if(!cfg.__scheduled){
+      const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
+      const elapsedSec = (Date.now() - updatedAt) / 1000;
+      const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
+      revertTimer = setTimeout(showClock, remaining * 1000);
+    }
   } else {
     showClock();
   }
 }
 
-applyConfig(DEFAULT_CONFIG);
+/* ===== AGENDAMENTO POR HORÁRIO =====
+   O admin salva uma lista de horários (schedule) com o modo/mensagem de cada um.
+   Cada aparelho decide sozinho, com base na hora local dele, qual é o horário
+   ativo agora — sem precisar de nenhum servidor rodando o relógio. */
+function pad2(n){ return String(n).padStart(2, '0'); }
+function nowTimeStr(){ const d = new Date(); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
 
+function getActiveScheduleEntry(cfg){
+  if(!cfg.schedule_enabled || !Array.isArray(cfg.schedule) || cfg.schedule.length === 0) return null;
+  const sorted = cfg.schedule.slice().sort((a, b) => String(a.time).localeCompare(String(b.time)));
+  const now = nowTimeStr();
+  let active = null;
+  for(const item of sorted){ if(item.time <= now) active = item; }
+  if(!active) active = sorted[sorted.length - 1]; // antes do 1º horário do dia = ainda vale o último de ontem
+  return active;
+}
+
+function computeEffective(cfg){
+  const entry = getActiveScheduleEntry(cfg);
+  if(!entry) return cfg;
+  return Object.assign({}, cfg, {
+    mode: entry.mode,
+    message: entry.mode === 'message' ? (entry.message || '') : cfg.message,
+    __scheduled: true
+  });
+}
+
+let baseCfg = DEFAULT_CONFIG;
+let lastEffectiveKey = null;
+function refreshEffective(){
+  const effective = computeEffective(baseCfg);
+  const key = JSON.stringify(effective);
+  if(key === lastEffectiveKey) return; // nada mudou — não reinicia a animação em andamento
+  lastEffectiveKey = key;
+  applyConfig(effective);
+}
+
+function normalizeCfg(raw){
+  const merged = Object.assign({}, DEFAULT_CONFIG, raw);
+  if(!Array.isArray(merged.schedule)) merged.schedule = [];
+  if(merged.schedule_enabled == null) merged.schedule_enabled = false;
+  return merged;
+}
+
+refreshEffective();
+setInterval(refreshEffective, 5000); // checa a cada 5s se cruzou algum horário do agendamento
 
 let lastConfigKey = null;
 function configKey(cfg){ return JSON.stringify(cfg); }
@@ -265,22 +341,24 @@ async function loadInitial(){
   const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
   if(error || !data){ screenEl.classList.add('offline'); return; }
   screenEl.classList.remove('offline');
-  const merged = Object.assign({}, DEFAULT_CONFIG, data);
+  const merged = normalizeCfg(data);
   const key = configKey(merged);
-  if(key === lastConfigKey) return; // nada mudou — não reinicia a animação em andamento
+  if(key === lastConfigKey) return; // nada mudou no banco
   lastConfigKey = key;
-  applyConfig(merged);
+  baseCfg = merged;
+  refreshEffective();
 }
 
 function subscribeRealtime(){
   sb.channel('letreiro-display')
     .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, (payload)=>{
       if(!payload.new) return;
-      const merged = Object.assign({}, DEFAULT_CONFIG, payload.new);
+      const merged = normalizeCfg(payload.new);
       const key = configKey(merged);
       if(key === lastConfigKey) return;
       lastConfigKey = key;
-      applyConfig(merged);
+      baseCfg = merged;
+      refreshEffective();
     })
     .subscribe((status)=>{
       if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') screenEl.classList.add('offline');
@@ -303,3 +381,6 @@ applyRotation();
 </script>
 </body>
 </html>
+
+
+
