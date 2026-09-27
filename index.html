@@ -36,14 +36,14 @@
   #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
   #screen.offline #screenContent{opacity:.35;}
 
-  #rotateBtn{
-    position:fixed; bottom:calc(14px + env(safe-area-inset-bottom,0px)); right:calc(14px + env(safe-area-inset-right,0px));
-    z-index:20; width:46px; height:46px; border-radius:50%; border:none;
-    background:rgba(255,255,255,.06); color:#fff; opacity:.16;
-    font-size:22px; line-height:1; display:flex; align-items:center; justify-content:center;
-    transition:opacity .2s ease; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  /* No celular em pé, o conteúdo é girado visualmente para continuar HORIZONTAL. */
+  @media (max-width: 900px) and (orientation: portrait){
+    #screen{
+      width:100vh;
+      height:100vw;
+      transform:translate(-50%,-50%) rotate(90deg);
+    }
   }
-  #rotateBtn:active{opacity:.55;}
 </style>
 </head>
 <body>
@@ -53,7 +53,6 @@
     <div id="screenSub"></div>
   </div>
 </div>
-<button id="rotateBtn" aria-label="Girar tela" title="Girar tela">⟳</button>
 
 <script>
 /* ===== CONFIGURAÇÃO DO SUPABASE (mesmo projeto do Cloud MGF) ===== */
@@ -105,30 +104,48 @@ function fitDisplay(){
   content.style.fontSize = fontPx + 'px';
 }
 
-/* ===== ROTAÇÃO ===== */
+/* ===== ORIENTAÇÃO =====
+   O letreiro sempre é HORIZONTAL.
+   Se o celular estiver fisicamente em pé, o CSS gira a área visual 90°.
+   Se o navegador permitir, também pedimos ao sistema para travar em landscape.
+*/
 const ROT_KEY = 'letreiroRotationDeg';
-const rotateBtn = document.getElementById('rotateBtn');
-let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
+let rotation = 0;
 
 function applyRotation(){
-  const vw = window.innerWidth, vh = window.innerHeight;
   rotation = 0;
-  screenEl.style.width = vw + 'px';
-  screenEl.style.height = vh + 'px';
-  screenEl.style.transform = 'translate(-50%, -50%)';
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const portrait = window.matchMedia('(orientation: portrait)').matches;
+
+  if (portrait && window.matchMedia('(max-width: 900px)').matches) {
+    screenEl.style.width = vh + 'px';
+    screenEl.style.height = vw + 'px';
+    screenEl.style.transform = 'translate(-50%, -50%) rotate(90deg)';
+  } else {
+    screenEl.style.width = vw + 'px';
+    screenEl.style.height = vh + 'px';
+    screenEl.style.transform = 'translate(-50%, -50%)';
+  }
   refitCurrent();
 }
 
-// Se o admin definir uma orientação fixa (vertical/horizontal), ela vale para
-// todos os aparelhos e o botão manual fica escondido. Em "Automático" cada
-// celular guarda sua própria rotação (botão ⟳ continua disponível).
+async function requestLandscape(){
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      await screen.orientation.lock('landscape');
+    }
+  } catch(e) {
+    // Alguns navegadores só permitem lock em tela cheia/PWA.
+    // O CSS acima continua garantindo a posição horizontal.
+  }
+}
+
 function syncOrientation(cfg){
-  // O letreiro deve permanecer sempre na posição HORIZONTAL.
-  // Não aplicar rotação de 90°/270° ao conteúdo.
+  // Ignora qualquer orientação salva/configurada no admin: o letreiro é sempre horizontal.
   rotation = 0;
   localStorage.setItem(ROT_KEY, '0');
-  rotateBtn.style.display = 'none';
   applyRotation();
+  requestLandscape();
 }
 
 function styleScreen(cfg){
@@ -415,12 +432,42 @@ subscribeRealtime();
 // checagem de respaldo a cada 1s — garante que não passe de 1s de atraso mesmo se o realtime falhar
 setInterval(loadInitial, 1000);
 
-document.getElementById('rotateBtn').addEventListener('click', ()=>{
-  rotation = (rotation + 90) % 360;
-  localStorage.setItem(ROT_KEY, rotation);
-  applyRotation();
+/* ===== TELA SEM DESLIGAR (Wake Lock, como players de vídeo) ===== */
+let wakeLock = null;
+
+async function keepScreenAwake(){
+  if (!('wakeLock' in navigator)) return;
+  if (document.visibilityState !== 'visible') return;
+  try {
+    if (!wakeLock || wakeLock.released) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch(e) {
+    // Se o navegador não permitir Wake Lock, o letreiro continua funcionando.
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    keepScreenAwake();
+    requestLandscape();
+    applyRotation();
+  }
 });
+
 window.addEventListener('resize', applyRotation);
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    applyRotation();
+    requestLandscape();
+  }, 100);
+});
+
+// Tentativa automática + tentativa após qualquer toque (alguns celulares exigem interação).
+keepScreenAwake();
+requestLandscape();
+document.addEventListener('pointerdown', keepScreenAwake, {passive:true});
 applyRotation();
 </script>
 </body>
