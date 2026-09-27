@@ -186,6 +186,7 @@
     #main{padding:16px 14px 70px;}
     .layout{grid-template-columns:1fr;}
     .previewCardWrap{position:static;}
+    .previewBox.landscape{width:100%; max-width:none;}
     .grid2{grid-template-columns:1fr;}
   }
 </style>
@@ -268,9 +269,8 @@
               <button type="button" id="cdStartBtn" style="width:100%; margin-top:14px; padding:16px; border:none; border-radius:11px; background:var(--accent); color:var(--accent-ink); font-weight:700; font-size:16px; font-family:inherit; cursor:pointer;">Começar a contar</button>
               <div class="hint" id="cdStatusHint"></div>
             </div>
-            <div class="row" id="cdLabelRow">
-              <label>Rótulo (aparece junto com o tempo, se quiser)</label>
-              <input type="text" id="countdownLabel" maxlength="60" placeholder="Ex: Faltam para o culto">
+            <div class="row" id="cdLabelRow" style="display:none">
+              <input type="hidden" id="countdownLabel" value="">
             </div>
             <div class="row" id="cdEndRow">
               <label>Quando chegar a zero</label>
@@ -473,8 +473,8 @@ const ROW_ID = 'main';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DEFAULT_CONFIG = {
-  mode: 'clock', message: 'Bem-vindo!', bgColor: '#050505', fontColor: '#39ff88',
-  fontFamily: "'Orbitron', sans-serif", fontSize: 100, messageDuration: 15, showSeconds: true,
+  mode: 'clock', message: 'BEM-VINDO!', bgColor: '#050505', fontColor: '#ffb000',
+  fontFamily: "'VT323', monospace", fontSize: 100, messageDuration: 15, showSeconds: true,
   orientation: 'landscape', messageAnim: 'scroll-left', messageSpeed: 'normal', glow: false, keepAwake: true,
   countdownTarget: '', countdownLabel: '', countdownEnd: 'clock',
   countdownKind: 'time', countdownTimeOfDay: '19:00',
@@ -825,7 +825,7 @@ function fromRow(r){
     messageAnim: r.message_anim || 'none', messageSpeed: r.message_speed || 'normal',
     keepAwake: r.keep_awake !== false, glow: !!r.glow,
     scheduleEnabled: !!r.schedule_enabled, schedule: Array.isArray(r.schedule) ? r.schedule : [],
-    countdownTarget: r.countdown_target || '', countdownLabel: r.countdown_label || '', countdownEnd: r.countdown_end || 'clock',
+    countdownTarget: r.countdown_target || '', countdownLabel: '', countdownEnd: r.countdown_end || 'clock',
     countdownKind: r.countdown_kind || 'time', countdownTimeOfDay: r.countdown_time_of_day || '19:00',
     countdownDays: r.countdown_days || 0, countdownHours: r.countdown_hours || 0, countdownMinutes: r.countdown_minutes != null ? r.countdown_minutes : 10
   };
