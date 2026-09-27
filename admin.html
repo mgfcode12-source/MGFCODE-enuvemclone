@@ -87,8 +87,8 @@
       </select>
     </div>
     <div class="row">
-      <label>Tamanho do texto <span class="rangeVal" id="sizeVal"></span></label>
-      <input type="range" id="fontSize" min="4" max="26" step="0.5">
+      <label>Tamanho do texto (o padrão já preenche a tela) <span class="rangeVal" id="sizeVal"></span></label>
+      <input type="range" id="fontSize" min="60" max="140" step="5">
     </div>
   </div>
 
@@ -116,7 +116,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bgColor: '#050505', fontColor: '#39ff88',
-  fontFamily: "'Orbitron', sans-serif", fontSize: 12, messageDuration: 15, showSeconds: true
+  fontFamily: "'Orbitron', sans-serif", fontSize: 100, messageDuration: 15, showSeconds: true
 };
 
 const el = id => document.getElementById(id);
@@ -144,7 +144,7 @@ function renderForm(){
   el('fontColor').value = state.fontColor;
   el('fontFamily').value = state.fontFamily;
   el('fontSize').value = state.fontSize;
-  el('sizeVal').textContent = state.fontSize + 'vw';
+  el('sizeVal').textContent = state.fontSize + '%';
   refreshRowVisibility();
   renderPreview();
 }
@@ -154,7 +154,8 @@ function renderPreview(){
   box.style.color = state.fontColor;
   box.style.fontFamily = state.fontFamily;
   const txt = el('previewText');
-  txt.style.fontSize = Math.min(state.fontSize, 12) + 'vw';
+  const previewScale = state.fontSize / 100;
+  txt.style.fontSize = Math.max(4, Math.min(9 * previewScale, 13)) + 'vw';
   txt.textContent = state.mode === 'message' ? (state.message || ' ')
     : new Date().toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
 }
@@ -189,7 +190,7 @@ el('messageDuration').addEventListener('input', e=>{ state.messageDuration = Num
 el('bgColor').addEventListener('input', e=>{ state.bgColor = e.target.value; renderPreview(); scheduleSave(); });
 el('fontColor').addEventListener('input', e=>{ state.fontColor = e.target.value; renderPreview(); scheduleSave(); });
 el('fontFamily').addEventListener('change', e=>{ state.fontFamily = e.target.value; renderPreview(); commit(); });
-el('fontSize').addEventListener('input', e=>{ state.fontSize = Number(e.target.value); el('sizeVal').textContent = state.fontSize+'vw'; renderPreview(); scheduleSave(); });
+el('fontSize').addEventListener('input', e=>{ state.fontSize = Number(e.target.value); el('sizeVal').textContent = state.fontSize+'%'; renderPreview(); scheduleSave(); });
 el('saveBtn').addEventListener('click', commit);
 setInterval(()=>{ if(state.mode==='clock') renderPreview(); }, 1000);
 
