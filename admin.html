@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Admin — Letreiro LED</title>
-<meta name="theme-color" content="#FFF8E6">
+<meta name="theme-color" content="#0b0d10">
 <link rel="icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,264 +13,415 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --solare:#FFC400; --lima:#C6F24A; --creme:#FFF8E6; --carvao:#1A1A1A; --neblina:#E6F3FF;
-    --card:#FFFFFF; --line:#EAE1CC; --text-dim:#6B6455;
+    --accent:#39ff88; --accent2:#ffc400; --accent3:#33aaff;
+    --bg0:#05070a; --bg1:#0b0e13; --bg2:#11151c;
+    --glass:rgba(255,255,255,.055); --glass-hi:rgba(255,255,255,.09); --glass-border:rgba(255,255,255,.10);
+    --text:#eef1f5; --text-dim:#8b93a1; --text-dimmer:#5c6472;
+    --danger:#ff5470; --radius:20px;
   }
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
   body{
-    font-family:'Sora',sans-serif; background:var(--creme); color:var(--carvao);
+    font-family:'Sora',sans-serif; color:var(--text); -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(1100px 700px at 12% -10%, rgba(57,255,136,.10), transparent 60%),
+      radial-gradient(900px 600px at 110% 10%, rgba(255,196,0,.08), transparent 55%),
+      radial-gradient(800px 800px at 90% 100%, rgba(51,170,255,.07), transparent 55%),
+      linear-gradient(180deg, var(--bg0), var(--bg1) 40%, var(--bg2));
+    background-attachment:fixed;
     padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
-    -webkit-font-smoothing:antialiased;
+    min-height:100%;
   }
-  #admin{max-width:1080px; margin:0 auto; padding:28px 20px 60px;}
+  ::selection{background:var(--accent); color:#04140b;}
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12); border-radius:99px;}
 
-  .topbar{display:flex; align-items:center; gap:12px; margin-bottom:26px;}
-  .logo-dot{width:34px; height:34px; border-radius:10px; flex:none;
-    background:linear-gradient(135deg, var(--solare), var(--lima)); box-shadow:0 3px 0 rgba(26,26,26,.08);}
-  .topbar h1{font-size:19px; font-weight:800; margin:0; letter-spacing:-.01em;}
-  .topbar .sub{font-size:12.5px; color:var(--text-dim); margin-top:1px;}
+  /* ===== layout: sidebar + conteúdo ===== */
+  #app{display:flex; min-height:100vh;}
 
-  .bento{display:grid; gap:14px; grid-template-columns:repeat(12, 1fr);}
+  #sidebar{
+    width:236px; flex:none; padding:22px 14px; display:flex; flex-direction:column; gap:4px;
+    background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    border-right:1px solid var(--glass-border); position:sticky; top:0; height:100vh;
+    backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+  }
+  .brand{display:flex; align-items:center; gap:11px; padding:6px 10px 22px;}
+  .brand .dot{width:36px; height:36px; border-radius:11px; flex:none;
+    background:linear-gradient(135deg, var(--accent), var(--accent2));
+    box-shadow:0 0 22px rgba(57,255,136,.35);}
+  .brand h1{font-size:15.5px; font-weight:800; margin:0; letter-spacing:-.01em;}
+  .brand .sub{font-size:11px; color:var(--text-dim); margin-top:1px;}
+
+  .navBtn{
+    display:flex; align-items:center; gap:11px; padding:11px 12px; border-radius:13px;
+    color:var(--text-dim); font-size:13.5px; font-weight:600; cursor:pointer; border:1px solid transparent;
+    background:transparent; text-align:left; width:100%; font-family:inherit; transition:.15s ease;
+  }
+  .navBtn .ic{width:19px; text-align:center; font-size:15px; flex:none; opacity:.9;}
+  .navBtn:hover{background:var(--glass); color:var(--text);}
+  .navBtn.on{background:var(--glass-hi); border-color:var(--glass-border); color:var(--text);
+    box-shadow:inset 2px 0 0 var(--accent);}
+  .navSpacer{flex:1;}
+  .navFoot{padding:10px 12px; font-size:10.5px; color:var(--text-dimmer); line-height:1.5;}
+
+  #main{flex:1; min-width:0; padding:26px 26px 80px; max-width:1180px; margin:0 auto; width:100%;}
+  .topline{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:20px; flex-wrap:wrap;}
+  .topline h2{font-size:20px; margin:0; font-weight:800; letter-spacing:-.01em;}
+  .topline .tagline{font-size:12.5px; color:var(--text-dim);}
+  #mobileTopBar{display:none;}
+
+  .layout{display:grid; grid-template-columns:1fr 340px; gap:18px; align-items:start;}
+  .stack{display:flex; flex-direction:column; gap:18px;}
+
+  /* ===== glass / bento cards ===== */
   .card{
-    background:var(--card); border:1px solid var(--line); border-radius:20px;
-    padding:18px; min-width:0;
+    background:var(--glass); border:1px solid var(--glass-border); border-radius:var(--radius);
+    padding:20px; min-width:0; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    box-shadow:0 10px 30px -18px rgba(0,0,0,.6);
   }
-  #cardModo{grid-column:span 4;} #cardCores{grid-column:span 4;} #cardFonte{grid-column:span 4;}
-  #cardPresets{grid-column:span 12;} #cardSchedule{grid-column:span 12;}
-  #cardPreview{grid-column:span 7;} #cardStatus{grid-column:span 5;}
+  .card h3{font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--text-dim); margin:0 0 14px; display:flex; align-items:center; gap:8px;}
+  .card h3 .ic{opacity:.85; font-size:13px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 
-  .card h2{font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
-    color:var(--text-dim); margin:0 0 12px;}
+  .row{margin-bottom:16px;} .row:last-child{margin-bottom:0;}
+  label{display:block; font-size:12.5px; font-weight:500; color:var(--text-dim); margin-bottom:7px;}
 
-  .row{margin-bottom:14px;} .row:last-child{margin-bottom:0;}
-  label{display:block; font-size:12.5px; font-weight:500; color:var(--text-dim); margin-bottom:6px;}
-
-  .seg{display:flex; background:var(--neblina); border-radius:12px; padding:3px; gap:3px;}
+  .seg{display:flex; background:rgba(0,0,0,.28); border:1px solid var(--glass-border); border-radius:13px; padding:3px; gap:3px;}
   .seg.wrap{flex-wrap:wrap;}
-  .seg button{flex:1; padding:9px; background:transparent; border:none; border-radius:9px;
-    font-family:inherit; font-size:13px; font-weight:600; color:var(--carvao); opacity:.55; cursor:pointer;}
+  .seg button{flex:1; padding:9px; background:transparent; border:none; border-radius:10px;
+    font-family:inherit; font-size:12.5px; font-weight:600; color:var(--text-dim); cursor:pointer; transition:.15s;}
   .seg.wrap button{flex:1 1 30%; min-width:80px;}
-  .seg button.on{background:var(--carvao); color:var(--lima); opacity:1;}
+  .seg button:hover{color:var(--text);}
+  .seg button.on{background:linear-gradient(135deg, var(--accent), #1fd66f); color:#04170c;
+    box-shadow:0 3px 12px -3px rgba(57,255,136,.5);}
 
-  textarea,select,input[type=text],input[type=time]{
-    width:100%; background:var(--creme); border:1px solid var(--line); color:var(--carvao);
-    border-radius:12px; padding:10px 12px; font-family:inherit; font-size:14px; font-weight:500;
+  textarea,select,input[type=text],input[type=time],input[type=number]{
+    width:100%; background:rgba(0,0,0,.28); border:1px solid var(--glass-border); color:var(--text);
+    border-radius:13px; padding:10px 12px; font-family:inherit; font-size:14px; font-weight:500; outline:none;
   }
-  textarea{resize:vertical; min-height:60px;}
-  select{appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%231A1A1A'/%3E%3C/svg%3E");
+  textarea:focus,select:focus,input:focus{border-color:var(--accent);}
+  textarea{resize:vertical; min-height:64px;}
+  select{appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238b93a1'/%3E%3C/svg%3E");
     background-repeat:no-repeat; background-position:right 14px center;}
 
   .colorRow{display:flex; gap:10px;} .colorRow > div{flex:1; min-width:0;}
-  input[type=color]{width:100%; height:42px; border:1px solid var(--line); border-radius:12px; background:var(--creme); padding:4px; cursor:pointer;}
+  input[type=color]{width:100%; height:44px; border:1px solid var(--glass-border); border-radius:13px;
+    background:rgba(0,0,0,.28); padding:4px; cursor:pointer;}
 
-  input[type=range]{width:100%; accent-color:var(--carvao);}
-  .rangeVal{color:var(--carvao); font-weight:700; font-size:12px; float:right;}
+  input[type=range]{width:100%; accent-color:var(--accent);}
+  .rangeVal{color:var(--accent); font-weight:700; font-size:12px; float:right;}
 
-  .paletteRow{display:flex; gap:8px; flex-wrap:wrap;}
-  .swatch{width:38px; height:38px; border-radius:10px; border:2px solid var(--line); cursor:pointer; padding:0;}
+  .paletteRow{display:flex; gap:9px; flex-wrap:wrap;}
+  .swatch{width:38px; height:38px; border-radius:11px; border:2px solid var(--glass-border); cursor:pointer; padding:0; transition:.15s;}
+  .swatch:hover{transform:translateY(-2px);}
   .swatch:active{transform:scale(.92);}
 
+  .catTabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+  .catTab{padding:6px 12px; border-radius:999px; background:rgba(0,0,0,.28); border:1px solid var(--glass-border);
+    color:var(--text-dim); font-size:11.5px; font-weight:700; cursor:pointer; font-family:inherit;}
+  .catTab.on{background:var(--glass-hi); color:var(--accent2); border-color:rgba(255,196,0,.4);}
+
   .chipRow{display:flex; flex-wrap:wrap; gap:8px;}
-  .chip{display:flex; align-items:center; gap:6px; background:var(--neblina); border-radius:999px;
-    padding:8px 12px; font-size:13px; font-weight:600; cursor:pointer; border:none; font-family:inherit; color:var(--carvao);}
-  .chip:active{opacity:.7;}
+  .chip{display:flex; align-items:center; gap:6px; background:rgba(0,0,0,.28); border:1px solid var(--glass-border); border-radius:999px;
+    padding:8px 12px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--text);}
+  .chip:hover{border-color:var(--accent);}
   .chip .x{opacity:.5; font-weight:800; padding-left:2px;}
   .addPresetRow{display:flex; gap:8px;}
   .addPresetRow input{flex:1;}
-  .addPresetRow button, .addSchedRow button{padding:9px 16px; border:none; border-radius:12px;
-    background:var(--carvao); color:var(--lima); font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap;}
+  .addPresetRow select{flex:0 0 128px;}
+  .addPresetRow button, .addSchedRow button{padding:10px 16px; border:none; border-radius:13px;
+    background:linear-gradient(135deg, var(--accent), #1fd66f); color:#04170c; font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap;}
 
-  .schedItem{display:flex; align-items:center; gap:10px; background:var(--creme); border:1px solid var(--line);
-    border-radius:12px; padding:9px 12px; margin-bottom:8px;}
-  .schedItem .time{font-weight:800; min-width:52px;}
+  .schedItem{display:flex; align-items:center; gap:10px; background:rgba(0,0,0,.24); border:1px solid var(--glass-border);
+    border-radius:13px; padding:10px 12px; margin-bottom:8px;}
+  .schedItem .time{font-weight:800; min-width:52px; color:var(--accent2);}
   .schedItem .desc{flex:1; font-size:13px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .schedItem .del{background:none; border:none; color:var(--text-dim); font-size:16px; cursor:pointer; font-weight:800; padding:0 4px;}
+  .schedItem .del{background:none; border:none; color:var(--text-dim); font-size:17px; cursor:pointer; font-weight:800; padding:0 4px;}
+  .schedItem .del:hover{color:var(--danger);}
   .addSchedRow{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
-  .addSchedRow input[type=time]{flex:0 0 110px;}
-  .addSchedRow select{flex:0 0 130px; padding:9px 12px;}
+  .addSchedRow input[type=time]{flex:0 0 112px;}
+  .addSchedRow select{flex:0 0 132px; padding:9px 12px;}
   .addSchedRow input[type=text]{flex:1; min-width:160px;}
 
+  /* ===== preview (celular) ===== */
+  .previewCardWrap{position:sticky; top:22px;}
+  .previewToggle{display:flex; gap:6px; margin-bottom:14px;}
+  .previewToggle button{flex:1; padding:8px; border-radius:11px; border:1px solid var(--glass-border);
+    background:rgba(0,0,0,.28); color:var(--text-dim); font-family:inherit; font-size:12px; font-weight:700; cursor:pointer;}
+  .previewToggle button.on{background:var(--glass-hi); color:var(--text); border-color:var(--accent);}
   .previewWrap{display:flex; justify-content:center;}
   .previewBox{
-    width:100%; max-width:200px; aspect-ratio:9/19.5; border-radius:26px; padding:5%;
-    text-align:center; display:flex; align-items:center; justify-content:center;
-    overflow:hidden; transition:background .3s,color .3s; border:6px solid var(--carvao); position:relative;
+    background:#000; border-radius:28px; padding:5%; text-align:center; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; transition:background .3s,color .3s, width .25s ease, height .25s ease; border:7px solid #1c1f26; position:relative;
+    box-shadow:0 20px 50px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04);
   }
+  .previewBox.portrait{width:190px; height:calc(190px * 19.5 / 9);}
+  .previewBox.landscape{width:340px; height:calc(340px * 9 / 19.5);}
   #previewContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap; font-weight:700;}
-  #previewSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
-  .preview-caption{text-align:center; font-size:11px; color:var(--text-dim); margin-top:10px;}
+  .preview-caption{text-align:center; font-size:11px; color:var(--text-dimmer); margin-top:12px;}
 
-  #saveBtn{width:100%; padding:13px; border:none; border-radius:12px; background:var(--carvao); color:var(--lima);
-    font-weight:700; font-size:14px; font-family:inherit; cursor:pointer; letter-spacing:.01em;}
-  #saveBtn:active{opacity:.85;}
-  #status{text-align:center; font-size:12px; color:var(--text-dim); margin-top:10px; min-height:14px;}
+  #saveBtn{width:100%; padding:14px; border:none; border-radius:14px;
+    background:linear-gradient(135deg, var(--accent), #1fd66f); color:#04170c;
+    font-weight:800; font-size:14px; font-family:inherit; cursor:pointer; letter-spacing:.01em;
+    box-shadow:0 10px 25px -8px rgba(57,255,136,.45);}
+  #saveBtn:active{transform:translateY(1px);}
+  #status{text-align:center; font-size:12px; color:var(--text-dim); margin-top:11px; min-height:14px;}
 
-  .linkBox{font-size:12px; color:var(--text-dim); word-break:break-all; background:var(--creme);
-    border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-top:6px;}
-  .hint{font-size:11px; color:var(--text-dim); margin-top:6px;}
+  .linkBox{font-size:11.5px; color:var(--text-dim); word-break:break-all; background:rgba(0,0,0,.28);
+    border:1px solid var(--glass-border); border-radius:11px; padding:9px 10px; margin-top:6px;}
+  .hint{font-size:11px; color:var(--text-dimmer); margin-top:8px; line-height:1.5;}
   .qrWrap{text-align:center;}
-  #qrImg{width:140px; height:140px; border-radius:10px; border:1px solid var(--line); background:#fff; padding:6px;}
+  #qrImg{width:132px; height:132px; border-radius:10px; border:1px solid var(--glass-border); background:#fff; padding:6px;}
 
-  @media (max-width:760px){
-    .card{grid-column:span 12 !important;}
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 9px;
+    border-radius:999px; background:rgba(57,255,136,.12); color:var(--accent); border:1px solid rgba(57,255,136,.25);}
+  .liveDot{width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent);
+    animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  .tabPanel{display:none;} .tabPanel.on{display:block;}
+
+  @media (max-width:980px){
+    #sidebar{display:none;}
+    #mobileTopBar{
+      display:flex; gap:6px; overflow-x:auto; padding:12px 14px; position:sticky; top:0; z-index:30;
+      background:rgba(10,12,16,.85); backdrop-filter:blur(14px); border-bottom:1px solid var(--glass-border);
+    }
+    #mobileTopBar .navBtn{width:auto; white-space:nowrap; flex:none;}
+    #main{padding:16px 14px 70px;}
+    .layout{grid-template-columns:1fr;}
+    .previewCardWrap{position:static;}
+    .grid2{grid-template-columns:1fr;}
   }
 </style>
 </head>
 <body>
-<div id="admin">
-  <div class="topbar">
-    <div class="logo-dot"></div>
-    <div>
-      <h1>Painel do Letreiro</h1>
-      <div class="sub">Configure o que aparece nos celulares conectados</div>
+<div id="app">
+
+  <div id="sidebar">
+    <div class="brand">
+      <div class="dot"></div>
+      <div>
+        <h1>Letreiro LED</h1>
+        <div class="sub">Painel de controle</div>
+      </div>
     </div>
+    <nav id="navDesktop"></nav>
+    <div class="navSpacer"></div>
+    <div class="navFoot">Conectado em tempo real com os aparelhos.</div>
   </div>
 
-  <div class="bento">
-    <div class="card" id="cardModo">
-      <h2>Conteúdo</h2>
-      <div class="row">
-        <label>Modo</label>
-        <div class="seg" id="modeSeg">
-          <button data-v="clock">Relógio</button>
-          <button data-v="message">Mensagem</button>
-        </div>
+  <div id="main">
+    <div id="mobileTopBar"></div>
+
+    <div class="topline">
+      <div>
+        <h2 id="pageTitle">Conteúdo</h2>
+        <div class="tagline" id="pageTag">O que aparece agora nas telas</div>
       </div>
-      <div class="row" id="msgRow">
-        <label>Mensagem</label>
-        <textarea id="message" maxlength="200" placeholder="Digite a mensagem…"></textarea>
-      </div>
-      <div class="row" id="durRow">
-        <label>Duração antes de voltar ao relógio <span class="rangeVal" id="durVal"></span></label>
-        <input type="range" id="messageDuration" min="3" max="120" step="1">
-      </div>
-      <div class="row" id="animRow">
-        <label>Animação da mensagem</label>
-        <div class="seg wrap" id="animSeg">
-          <button data-v="none">Estático</button>
-          <button data-v="scroll-left">← Esquerda</button>
-          <button data-v="scroll-right">→ Direita</button>
-          <button data-v="drop">↓ Desce</button>
-          <button data-v="rise">↑ Sobe</button>
-          <button data-v="fade">◐ Aparece/some</button>
-          <button data-v="blink">✦ Pisca</button>
-        </div>
-      </div>
-      <div class="row" id="secRow">
-        <label>Relógio</label>
-        <div class="seg" id="secSeg">
-          <button data-v="1">Com segundos</button>
-          <button data-v="0">Sem segundos</button>
-        </div>
-      </div>
-      <div class="row" id="oriRow">
-        <label>Orientação da tela (nos aparelhos)</label>
-        <div class="seg" id="oriSeg">
-          <button data-v="auto">Automático</button>
-          <button data-v="portrait">Vertical</button>
-          <button data-v="landscape">Horizontal</button>
-        </div>
-      </div>
+      <span class="badge"><span class="liveDot"></span> ao vivo</span>
     </div>
 
-    <div class="card" id="cardCores">
-      <h2>Cores</h2>
-      <div class="row colorRow">
-        <div><label>Fundo</label><input type="color" id="bgColor"></div>
-        <div><label>Fonte</label><input type="color" id="fontColor"></div>
-      </div>
-      <div class="row">
-        <label>Paletas prontas</label>
-        <div class="paletteRow" id="paletteRow"></div>
-      </div>
-      <div class="row">
-        <label>Estilo do texto</label>
-        <div class="seg" id="glowSeg">
-          <button data-v="0">Nítido</button>
-          <button data-v="1">Brilho neon</button>
-        </div>
-      </div>
-    </div>
+    <div class="layout">
+      <div class="stack">
 
-    <div class="card" id="cardFonte">
-      <h2>Tipografia</h2>
-      <div class="row">
-        <label>Fonte</label>
-        <select id="fontFamily">
-          <option value="'Orbitron', sans-serif">Orbitron (display)</option>
-          <option value="'VT323', monospace">VT323 (pixel/LED)</option>
-          <option value="'Share Tech Mono', monospace">Share Tech Mono</option>
-          <option value="'Courier Prime', monospace">Courier Prime</option>
-          <option value="Arial, sans-serif">Arial</option>
-          <option value="Georgia, serif">Georgia</option>
-        </select>
-      </div>
-      <div class="row">
-        <label>Tamanho <span class="rangeVal" id="sizeVal"></span></label>
-        <input type="range" id="fontSize" min="50" max="100" step="5">
-      </div>
-    </div>
-
-    <div class="card" id="cardPresets">
-      <h2>Pré-ajustes de mensagem</h2>
-      <div class="row">
-        <div class="chipRow" id="presetChips"></div>
-      </div>
-      <div class="row addPresetRow">
-        <input type="text" id="newPresetText" placeholder="Nova mensagem para salvar como pré-ajuste…" maxlength="200">
-        <button id="addPresetBtn">Salvar</button>
-      </div>
-      <div class="hint">Toque num pré-ajuste pra aplicar na hora nas telas. Toque no × pra remover (fica salvo neste navegador).</div>
-    </div>
-
-    <div class="card" id="cardSchedule">
-      <h2>Agendamento por horário</h2>
-      <div class="row">
-        <label>Ativar agendamento</label>
-        <div class="seg" id="schedEnabledSeg" style="max-width:220px;">
-          <button data-v="0">Desligado</button>
-          <button data-v="1">Ligado</button>
-        </div>
-      </div>
-      <div class="row" id="schedRows"></div>
-      <div class="row addSchedRow">
-        <input type="time" id="newSchedTime" value="08:00">
-        <select id="newSchedMode">
-          <option value="clock">Relógio</option>
-          <option value="message">Mensagem</option>
-        </select>
-        <input type="text" id="newSchedMsg" placeholder="Mensagem para esse horário…" maxlength="200">
-        <button id="addSchedBtn">+ Adicionar</button>
-      </div>
-      <div class="hint">A tela troca sozinha no horário definido e mantém até o próximo horário da lista.</div>
-    </div>
-
-    <div class="card" id="cardPreview">
-      <h2>Prévia</h2>
-      <div class="previewWrap">
-        <div class="previewBox" id="preview">
-          <div id="previewContent">
-            <div id="previewMain"></div>
-            <div id="previewSub"></div>
+        <!-- ===== CONTEÚDO ===== -->
+        <div class="tabPanel on" data-panel="conteudo">
+          <div class="card" id="cardModo">
+            <h3><span class="ic">🖥️</span> Modo de exibição</h3>
+            <div class="row">
+              <div class="seg" id="modeSeg">
+                <button data-v="clock">Relógio</button>
+                <button data-v="message">Mensagem</button>
+              </div>
+            </div>
+            <div class="row" id="msgRow">
+              <label>Mensagem</label>
+              <textarea id="message" maxlength="200" placeholder="Digite a mensagem…"></textarea>
+            </div>
+            <div class="row" id="durRow">
+              <label>Duração antes de voltar ao relógio <span class="rangeVal" id="durVal"></span></label>
+              <input type="range" id="messageDuration" min="3" max="120" step="1">
+            </div>
+            <div class="row" id="animRow">
+              <label>Animação da mensagem</label>
+              <div class="seg wrap" id="animSeg">
+                <button data-v="none">Estático</button>
+                <button data-v="scroll-left">← Letreiro (esq.)</button>
+                <button data-v="scroll-right">→ Letreiro (dir.)</button>
+                <button data-v="drop">↓ Desce</button>
+                <button data-v="rise">↑ Sobe</button>
+                <button data-v="fade">◐ Aparece/some</button>
+                <button data-v="blink">✦ Pisca</button>
+              </div>
+            </div>
+            <div class="row" id="speedRow">
+              <label>Velocidade do letreiro</label>
+              <div class="seg" id="speedSeg">
+                <button data-v="slow">Devagar</button>
+                <button data-v="normal">Normal</button>
+                <button data-v="fast">Rápida</button>
+              </div>
+            </div>
+            <div class="row" id="secRow">
+              <label>Relógio</label>
+              <div class="seg" id="secSeg">
+                <button data-v="1">Com segundos</button>
+                <button data-v="0">Sem segundos</button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="preview-caption">Reflete o tamanho real no aparelho conectado</div>
-    </div>
 
-    <div class="card" id="cardStatus">
-      <h2>Aplicar</h2>
-      <button id="saveBtn">Aplicar nas telas</button>
-      <div id="status"></div>
-      <div class="row" style="margin-top:14px;">
-        <label>Link do letreiro</label>
-        <div class="linkBox" id="displayLink"></div>
-        <div class="hint">Abra esse link nos celulares que serão a tela.</div>
+        <!-- ===== MENSAGENS RÁPIDAS ===== -->
+        <div class="tabPanel" data-panel="mensagens">
+          <div class="card">
+            <h3><span class="ic">⚡</span> Mensagens rápidas</h3>
+            <div class="catTabs" id="presetCats"></div>
+            <div class="row">
+              <div class="chipRow" id="presetChips"></div>
+            </div>
+            <div class="row addPresetRow">
+              <input type="text" id="newPresetText" placeholder="Nova mensagem…" maxlength="200">
+              <select id="newPresetCat"></select>
+              <button id="addPresetBtn">Salvar</button>
+            </div>
+            <div class="hint">Toque numa mensagem pra aplicar na hora nas telas. Toque no × pra remover (salvo neste navegador).</div>
+          </div>
+        </div>
+
+        <!-- ===== TELA ===== -->
+        <div class="tabPanel" data-panel="tela">
+          <div class="card">
+            <h3><span class="ic">📱</span> Orientação nos aparelhos</h3>
+            <div class="row">
+              <div class="seg" id="oriSeg">
+                <button data-v="auto">Automático</button>
+                <button data-v="portrait">Vertical</button>
+                <button data-v="landscape">Horizontal</button>
+              </div>
+              <div class="hint">"Automático" acompanha a posição real do celular — deite-o no tripé e ele preenche a tela em paisagem sozinho.</div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:18px;">
+            <h3><span class="ic">🔆</span> Comportamento da tela</h3>
+            <div class="row">
+              <label>Manter a tela sempre ligada</label>
+              <div class="seg" id="wakeSeg">
+                <button data-v="1">Ligada sempre</button>
+                <button data-v="0">Padrão do celular</button>
+              </div>
+              <div class="hint">Funciona em Chrome/Android. No iPhone (Safari) o sistema pode apagar a tela mesmo assim.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== APARÊNCIA ===== -->
+        <div class="tabPanel" data-panel="aparencia">
+          <div class="grid2">
+            <div class="card">
+              <h3><span class="ic">🎨</span> Cores</h3>
+              <div class="row colorRow">
+                <div><label>Fundo</label><input type="color" id="bgColor"></div>
+                <div><label>Fonte</label><input type="color" id="fontColor"></div>
+              </div>
+              <div class="row">
+                <label>Paletas prontas</label>
+                <div class="paletteRow" id="paletteRow"></div>
+              </div>
+              <div class="row">
+                <label>Estilo do texto</label>
+                <div class="seg" id="glowSeg">
+                  <button data-v="0">Nítido</button>
+                  <button data-v="1">Brilho neon</button>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <h3><span class="ic">🔤</span> Tipografia</h3>
+              <div class="row">
+                <label>Fonte</label>
+                <select id="fontFamily">
+                  <option value="'Orbitron', sans-serif">Orbitron (display)</option>
+                  <option value="'VT323', monospace">VT323 (pixel/LED)</option>
+                  <option value="'Share Tech Mono', monospace">Share Tech Mono</option>
+                  <option value="'Courier Prime', monospace">Courier Prime</option>
+                  <option value="Arial, sans-serif">Arial</option>
+                  <option value="Georgia, serif">Georgia</option>
+                </select>
+              </div>
+              <div class="row">
+                <label>Tamanho <span class="rangeVal" id="sizeVal"></span></label>
+                <input type="range" id="fontSize" min="50" max="100" step="5">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== AGENDAMENTO ===== -->
+        <div class="tabPanel" data-panel="agenda">
+          <div class="card">
+            <h3><span class="ic">🗓️</span> Agendamento por horário</h3>
+            <div class="row">
+              <label>Ativar agendamento</label>
+              <div class="seg" id="schedEnabledSeg" style="max-width:220px;">
+                <button data-v="0">Desligado</button>
+                <button data-v="1">Ligado</button>
+              </div>
+            </div>
+            <div class="row" id="schedRows"></div>
+            <div class="row addSchedRow">
+              <input type="time" id="newSchedTime" value="08:00">
+              <select id="newSchedMode">
+                <option value="clock">Relógio</option>
+                <option value="message">Mensagem</option>
+              </select>
+              <input type="text" id="newSchedMsg" placeholder="Mensagem para esse horário…" maxlength="200">
+              <button id="addSchedBtn">+ Adicionar</button>
+            </div>
+            <div class="hint">A tela troca sozinha no horário definido e mantém até o próximo horário da lista — ideal pra início/fim de culto.</div>
+          </div>
+        </div>
+
+        <!-- ===== DISPOSITIVO ===== -->
+        <div class="tabPanel" data-panel="dispositivo">
+          <div class="card">
+            <h3><span class="ic">🔗</span> Link do letreiro</h3>
+            <div class="linkBox" id="displayLink"></div>
+            <div class="hint">Abra esse link nos celulares que serão a tela e adicione à tela de início pra rodar em tela cheia.</div>
+            <div class="row qrWrap" style="margin-top:16px;">
+              <label>QR code (pra configurar um celular novo)</label>
+              <img id="qrImg" alt="QR code do link do letreiro">
+            </div>
+          </div>
+        </div>
+
       </div>
-      <div class="row qrWrap">
-        <label>QR code (pra configurar um celular novo)</label>
-        <img id="qrImg" alt="QR code do link do letreiro">
+
+      <!-- ===== PRÉVIA (fixa em todas as abas) ===== -->
+      <div class="previewCardWrap">
+        <div class="card">
+          <h3><span class="ic">👁️</span> Prévia ao vivo</h3>
+          <div class="previewToggle">
+            <button data-v="portrait" class="on" id="prevPortraitBtn">Vertical</button>
+            <button data-v="landscape" id="prevLandscapeBtn">Horizontal</button>
+          </div>
+          <div class="previewWrap">
+            <div class="previewBox portrait" id="preview">
+              <div id="previewContent">
+                <div id="previewMain"></div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-caption">Reflete o tamanho real no aparelho conectado</div>
+        </div>
+
+        <div class="card" style="margin-top:18px;">
+          <h3><span class="ic">✅</span> Aplicar</h3>
+          <button id="saveBtn">Aplicar nas telas</button>
+          <div id="status"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -286,7 +437,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bgColor: '#050505', fontColor: '#39ff88',
   fontFamily: "'Orbitron', sans-serif", fontSize: 100, messageDuration: 15, showSeconds: true,
-  orientation: 'auto', messageAnim: 'none', glow: false,
+  orientation: 'auto', messageAnim: 'scroll-left', messageSpeed: 'normal', glow: false, keepAwake: true,
   scheduleEnabled: false, schedule: []
 };
 
@@ -294,6 +445,37 @@ const el = id => document.getElementById(id);
 const state = Object.assign({}, DEFAULT_CONFIG, {schedule: []});
 let saveTimer = null;
 let suppressRemote = false;
+
+/* ===== Navegação (sidebar / abas) ===== */
+const SECTIONS = [
+  {id:'conteudo',    label:'Conteúdo',        ic:'🖥️', tag:'O que aparece agora nas telas'},
+  {id:'mensagens',   label:'Mensagens rápidas',ic:'⚡', tag:'Frases prontas por categoria'},
+  {id:'tela',        label:'Tela',            ic:'📱', tag:'Orientação e tela sempre ligada'},
+  {id:'aparencia',   label:'Aparência',       ic:'🎨', tag:'Cores, brilho e tipografia'},
+  {id:'agenda',      label:'Agendamento',     ic:'🗓️', tag:'Troca automática por horário'},
+  {id:'dispositivo', label:'Dispositivo',     ic:'🔗', tag:'Link e QR code das telas'}
+];
+function buildNav(container, isMobile){
+  container.innerHTML = '';
+  SECTIONS.forEach(s=>{
+    const b = document.createElement('button');
+    b.className = 'navBtn' + (s.id === 'conteudo' ? ' on' : '');
+    b.dataset.panel = s.id;
+    b.innerHTML = `<span class="ic">${s.ic}</span><span>${s.label}</span>`;
+    b.addEventListener('click', ()=> selectPanel(s.id));
+    container.appendChild(b);
+  });
+}
+buildNav(el('navDesktop'), false);
+buildNav(el('mobileTopBar'), true);
+
+function selectPanel(id){
+  document.querySelectorAll('.tabPanel').forEach(p=> p.classList.toggle('on', p.dataset.panel === id));
+  document.querySelectorAll('.navBtn').forEach(b=> b.classList.toggle('on', b.dataset.panel === id));
+  const meta = SECTIONS.find(s=> s.id === id);
+  if(meta){ el('pageTitle').textContent = meta.label; el('pageTag').textContent = meta.tag; }
+  window.scrollTo({top:0, behavior:'smooth'});
+}
 
 /* ===== Mesmo motor de ajuste automático do index.html — a prévia calcula
    o tamanho exatamente como o letreiro real faria, dentro do formato de celular ===== */
@@ -307,22 +489,33 @@ function widestLineWidth(text, fontPx, fontFamily){
 function fitPreviewText(){
   const box = el('preview');
   const mainEl = el('previewMain');
-  const hasSub = !!el('previewSub').textContent;
-  const innerW = box.clientWidth * 0.9;
-  const innerH = box.clientHeight * 0.86;
+  const innerW = box.clientWidth * 0.92;
+  const innerH = box.clientHeight * 0.9;
   const lineCount = String(mainEl.textContent || ' ').split('\n').length;
 
   const REF = 200;
   const refW = widestLineWidth(mainEl.textContent, REF, state.fontFamily);
   const sizeByWidth = (innerW / refW) * REF;
   const lineHeightFactor = 1.15 * lineCount;
-  const subFactor = hasSub ? 0.62 : 0;
-  const sizeByHeight = innerH / (lineHeightFactor + subFactor);
+  const sizeByHeight = innerH / lineHeightFactor;
 
   const scale = (state.fontSize || 100) / 100;
   const fontPx = Math.max(6, Math.min(sizeByWidth, sizeByHeight) * scale);
   el('previewContent').style.fontSize = fontPx + 'px';
 }
+
+/* Prévia: alternar retrato/paisagem */
+let previewOrientation = 'portrait';
+function setPreviewOrientation(v){
+  previewOrientation = v;
+  el('preview').classList.toggle('portrait', v === 'portrait');
+  el('preview').classList.toggle('landscape', v === 'landscape');
+  el('prevPortraitBtn').classList.toggle('on', v === 'portrait');
+  el('prevLandscapeBtn').classList.toggle('on', v === 'landscape');
+  fitPreviewText();
+}
+el('prevPortraitBtn').addEventListener('click', ()=> setPreviewOrientation('portrait'));
+el('prevLandscapeBtn').addEventListener('click', ()=> setPreviewOrientation('landscape'));
 
 const displayLinkURL = location.origin + location.pathname.replace(/admin\.html$/, 'index.html');
 el('displayLink').textContent = displayLinkURL;
@@ -335,6 +528,7 @@ function refreshRowVisibility(){
   el('msgRow').style.display = state.mode === 'message' ? '' : 'none';
   el('durRow').style.display = state.mode === 'message' ? '' : 'none';
   el('animRow').style.display = state.mode === 'message' ? '' : 'none';
+  el('speedRow').style.display = (state.mode === 'message' && state.messageAnim && state.messageAnim.indexOf('scroll') === 0) ? '' : 'none';
   el('secRow').style.display = state.mode === 'clock' ? '' : 'none';
 }
 function renderForm(){
@@ -345,7 +539,9 @@ function renderForm(){
   setSeg(el('secSeg'), state.showSeconds ? '1' : '0');
   setSeg(el('oriSeg'), state.orientation || 'auto');
   setSeg(el('animSeg'), state.messageAnim || 'none');
+  setSeg(el('speedSeg'), state.messageSpeed || 'normal');
   setSeg(el('glowSeg'), state.glow ? '1' : '0');
+  setSeg(el('wakeSeg'), state.keepAwake === false ? '0' : '1');
   el('bgColor').value = state.bgColor;
   el('fontColor').value = state.fontColor;
   el('fontFamily').value = state.fontFamily;
@@ -362,11 +558,9 @@ function renderPreview(){
   box.style.fontFamily = state.fontFamily;
   if(state.mode === 'message'){
     el('previewMain').textContent = state.message || ' ';
-    el('previewSub').textContent = '';
   } else {
     const now = new Date();
     el('previewMain').textContent = now.toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
-    el('previewSub').textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
   }
   fitPreviewText();
 }
@@ -380,7 +574,8 @@ const PALETTES = [
   {bg:'#0a0600', font:'#ffb000', label:'Âmbar'},
   {bg:'#00050a', font:'#33aaff', label:'Azul'},
   {bg:'#050505', font:'#ffffff', label:'Branco'},
-  {bg:'#0a0008', font:'#ff4fd8', label:'Rosa'}
+  {bg:'#0a0008', font:'#ff4fd8', label:'Rosa'},
+  {bg:'#05050a', font:'#c9a4ff', label:'Roxo'}
 ];
 function renderPalettes(){
   const wrap = el('paletteRow');
@@ -399,53 +594,87 @@ function renderPalettes(){
 }
 renderPalettes();
 
-/* ===== Pré-ajustes de mensagem (salvos neste navegador) ===== */
-const PRESET_KEY = 'letreiroPresets';
-const DEFAULT_PRESETS = ['Bem-vindo!', 'Voltamos já', 'Fechado para o almoço', 'Aberto agora', 'Promoção especial hoje!'];
+/* ===== Mensagens rápidas — agora com categorias ===== */
+const PRESET_KEY = 'letreiroPresetsV2';
+const DEFAULT_PRESETS = [
+  {text:'Bem-vindo!', cat:'Saudações'},
+  {text:'Sejam bem-vindos à casa de Deus', cat:'Saudações'},
+  {text:'Culto às 19h', cat:'Cultos'},
+  {text:'Escola Bíblica agora', cat:'Cultos'},
+  {text:'Estamos ao vivo', cat:'Cultos'},
+  {text:'Ore, o Senhor está no controle', cat:'Avisos'},
+  {text:'Reunião de oração hoje às 19h30', cat:'Avisos'},
+  {text:'Voltamos já', cat:'Avisos'},
+  {text:'Feliz aniversário!', cat:'Saudações'}
+];
+const CATEGORIES = ['Todas', 'Cultos', 'Avisos', 'Saudações', 'Outras'];
 function loadPresets(){
   try{
     const raw = localStorage.getItem(PRESET_KEY);
     if(raw) return JSON.parse(raw);
+    const oldRaw = localStorage.getItem('letreiroPresets');
+    if(oldRaw){ return JSON.parse(oldRaw).map(t=> ({text:t, cat:'Outras'})); }
   }catch(e){}
   return DEFAULT_PRESETS.slice();
 }
 function savePresetsToStorage(){ localStorage.setItem(PRESET_KEY, JSON.stringify(presets)); }
 let presets = loadPresets();
+let activeCat = 'Todas';
+
+function renderPresetCats(){
+  const wrap = el('presetCats');
+  wrap.innerHTML = '';
+  CATEGORIES.forEach(cat=>{
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'catTab' + (cat === activeCat ? ' on' : '');
+    b.textContent = cat;
+    b.addEventListener('click', ()=>{ activeCat = cat; renderPresetCats(); renderPresets(); });
+    wrap.appendChild(b);
+  });
+  const sel = el('newPresetCat');
+  sel.innerHTML = '';
+  CATEGORIES.filter(c=> c !== 'Todas').forEach(cat=>{
+    const opt = document.createElement('option'); opt.value = cat; opt.textContent = cat;
+    sel.appendChild(opt);
+  });
+}
 function renderPresets(){
   const wrap = el('presetChips');
   wrap.innerHTML = '';
-  presets.forEach((text, i)=>{
+  const list = presets.filter((p,i)=> activeCat === 'Todas' || p.cat === activeCat).map(p=> ({...p, i: presets.indexOf(p)}));
+  if(list.length === 0){ wrap.innerHTML = '<div class="hint">Nenhuma mensagem nessa categoria ainda.</div>'; return; }
+  list.forEach(p=>{
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'chip';
     const label = document.createElement('span');
-    label.textContent = text.length > 30 ? text.slice(0, 30) + '…' : text;
+    label.textContent = p.text.length > 34 ? p.text.slice(0, 34) + '…' : p.text;
     const x = document.createElement('span');
     x.className = 'x';
     x.textContent = '×';
-    x.dataset.i = i;
     chip.appendChild(label);
     chip.appendChild(x);
     chip.addEventListener('click', (e)=>{
       if(e.target === x){
-        presets.splice(i, 1);
+        presets.splice(p.i, 1);
         savePresetsToStorage();
         renderPresets();
         return;
       }
       state.mode = 'message';
-      state.message = text;
+      state.message = p.text;
       renderForm();
       commit();
     });
     wrap.appendChild(chip);
   });
 }
+renderPresetCats();
 renderPresets();
 el('addPresetBtn').addEventListener('click', ()=>{
   const val = el('newPresetText').value.trim();
   if(!val) return;
-  presets.push(val);
+  presets.push({text: val, cat: el('newPresetCat').value || 'Outras'});
   savePresetsToStorage();
   el('newPresetText').value = '';
   renderPresets();
@@ -506,6 +735,7 @@ function toRow(s){
     id: ROW_ID, mode: s.mode, message: s.message, bg_color: s.bgColor, font_color: s.fontColor,
     font_family: s.fontFamily, font_size: s.fontSize, message_duration: s.messageDuration,
     show_seconds: s.showSeconds, orientation: s.orientation, message_anim: s.messageAnim,
+    message_speed: s.messageSpeed, keep_awake: s.keepAwake,
     glow: s.glow, schedule_enabled: s.scheduleEnabled, schedule: s.schedule,
     updated_at: new Date().toISOString()
   };
@@ -515,7 +745,8 @@ function fromRow(r){
     mode: r.mode, message: r.message, bgColor: r.bg_color, fontColor: r.font_color,
     fontFamily: r.font_family, fontSize: Math.min(r.font_size || 100, 100), messageDuration: r.message_duration,
     showSeconds: r.show_seconds, orientation: r.orientation || 'auto',
-    messageAnim: r.message_anim || 'none', glow: !!r.glow,
+    messageAnim: r.message_anim || 'none', messageSpeed: r.message_speed || 'normal',
+    keepAwake: r.keep_awake !== false, glow: !!r.glow,
     scheduleEnabled: !!r.schedule_enabled, schedule: Array.isArray(r.schedule) ? r.schedule : []
   };
 }
@@ -552,7 +783,9 @@ el('modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button');
 el('secSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.showSeconds = b.dataset.v==='1'; renderForm(); scheduleSave(); });
 el('oriSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.orientation = b.dataset.v; renderForm(); commit(); });
 el('animSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageAnim = b.dataset.v; renderForm(); commit(); });
+el('speedSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageSpeed = b.dataset.v; renderForm(); commit(); });
 el('glowSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.glow = b.dataset.v==='1'; renderForm(); commit(); });
+el('wakeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.keepAwake = b.dataset.v==='1'; renderForm(); commit(); });
 el('message').addEventListener('input', e=>{ state.message = e.target.value; renderPreview(); scheduleSave(); });
 el('messageDuration').addEventListener('input', e=>{ state.messageDuration = Number(e.target.value); el('durVal').textContent = state.messageDuration+'s'; scheduleSave(); });
 el('bgColor').addEventListener('input', e=>{ state.bgColor = e.target.value; renderPreview(); scheduleSave(); });
