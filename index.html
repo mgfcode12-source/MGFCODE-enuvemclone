@@ -25,7 +25,6 @@
     font-family:'Share Tech Mono', monospace;
   }
   #screenContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap;}
-  #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
   #screen.offline #screenContent{opacity:.35;}
 
   #rotateBtn{
@@ -42,7 +41,6 @@
 <div id="screen">
   <div id="screenContent">
     <div id="screenMain">--:--:--</div>
-    <div id="screenSub"></div>
   </div>
 </div>
 <button id="rotateBtn" aria-label="Girar tela" title="Girar tela">⟳</button>
@@ -59,16 +57,32 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
   font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
-  orientation: 'auto', message_anim: 'none', glow: false,
+  orientation: 'auto', message_anim: 'scroll-left', glow: false,
   schedule_enabled: false, schedule: [], updated_at: null
 };
 
 const screenEl = document.getElementById('screen');
 const content = document.getElementById('screenContent');
 const main = document.getElementById('screenMain');
-const sub = document.getElementById('screenSub');
 
 let clockTimer = null, revertTimer = null, currentCfg = DEFAULT_CONFIG;
+
+/* ===== WAKE LOCK — a tela nunca apaga, como em vídeo do YouTube ===== */
+let wakeLock = null;
+async function requestWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  }catch(e){ /* alguns navegadores recusam se a aba não está em foco — tudo bem, tentamos de novo depois */ }
+}
+requestWakeLock();
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') requestWakeLock();
+});
+// alguns Android soltam o wake lock sozinhos depois de um tempo — reforça periodicamente
+setInterval(requestWakeLock, 20000);
 
 /* ===== AJUSTE AUTOMÁTICO: o texto sempre ocupa a tela inteira ===== */
 const measureCanvas = document.createElement('canvas');
@@ -82,9 +96,8 @@ function widestLineWidth(text, fontPx, fontFamily){
 
 function fitDisplay(){
   const family = currentCfg.font_family;
-  const hasSub = !!sub.textContent;
-  const innerW = screenEl.clientWidth * 0.9;
-  const innerH = screenEl.clientHeight * 0.86;
+  const innerW = screenEl.clientWidth * 0.92;
+  const innerH = screenEl.clientHeight * 0.9;
   const lineCount = String(main.textContent || ' ').split('\n').length;
 
   const REF = 200;
@@ -92,8 +105,7 @@ function fitDisplay(){
   const sizeByWidth = (innerW / refW) * REF;
 
   const lineHeightFactor = 1.15 * lineCount;
-  const subFactor = hasSub ? 0.62 : 0; // espaço extra da linha de data/sub
-  const sizeByHeight = innerH / (lineHeightFactor + subFactor);
+  const sizeByHeight = innerH / lineHeightFactor;
 
   const scale = (currentCfg.font_size || 100) / 100;
   const fontPx = Math.max(14, Math.min(sizeByWidth, sizeByHeight) * scale);
@@ -101,10 +113,22 @@ function fitDisplay(){
   content.style.fontSize = fontPx + 'px';
 }
 
-/* ===== ROTAÇÃO ===== */
+/* ===== ROTAÇÃO / PAISAGEM =====
+   Antes o app forçava rotação mesmo quando o celular físico já estava deitado,
+   girando o texto duas vezes (o "bug" da tela deitada). Agora comparamos o
+   modo desejado (auto/paisagem/retrato) com a orientação REAL do aparelho e
+   só giramos via CSS quando as duas divergem — se você deitar o celular no
+   tripé, ele já fica em paisagem naturalmente, sem giro extra. */
 const ROT_KEY = 'letreiroRotationDeg';
 const rotateBtn = document.getElementById('rotateBtn');
 let rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
+
+function isDeviceLandscape(){
+  if(screen.orientation && screen.orientation.type){
+    return screen.orientation.type.indexOf('landscape') === 0;
+  }
+  return window.innerWidth > window.innerHeight;
+}
 
 function applyRotation(){
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -115,15 +139,18 @@ function applyRotation(){
   refitCurrent();
 }
 
-// Se o admin definir uma orientação fixa (vertical/horizontal), ela vale para
-// todos os aparelhos e o botão manual fica escondido. Em "Automático" cada
-// celular guarda sua própria rotação (botão ⟳ continua disponível).
 function syncOrientation(cfg){
   const forced = cfg.orientation === 'landscape' || cfg.orientation === 'portrait';
-  if(cfg.orientation === 'landscape') rotation = 90;
-  else if(cfg.orientation === 'portrait') rotation = 0;
-  localStorage.setItem(ROT_KEY, rotation);
-  rotateBtn.style.display = forced ? 'none' : 'flex';
+  if(forced){
+    const wantLandscape = cfg.orientation === 'landscape';
+    const isLandscape = isDeviceLandscape();
+    // só gira via CSS se o celular físico ainda não está na orientação desejada
+    rotation = (wantLandscape === isLandscape) ? 0 : 90;
+    rotateBtn.style.display = 'none';
+  } else {
+    rotation = Number(localStorage.getItem(ROT_KEY)) || 0;
+    rotateBtn.style.display = 'flex';
+  }
   applyRotation();
 }
 
@@ -146,7 +173,6 @@ function tickClock(){
     ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
     : {hour:'2-digit',minute:'2-digit',hour12:false};
   main.textContent = now.toLocaleTimeString('pt-BR', opts);
-  sub.textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
   fitDisplay();
 }
 
@@ -168,6 +194,9 @@ function showClock(){
   clockTimer = setInterval(tickClock, 1000);
 }
 
+/* Efeito letreiro de aeroporto: a mensagem entra de um lado, atravessa a tela
+   inteira e sai do outro, em loop contínuo — pensado para quem está longe,
+   ex.: no púlpito, avistar de relance. */
 function playScroll(direction){
   const family = currentCfg.font_family;
   const innerH = screenEl.clientHeight * 0.8;
@@ -264,7 +293,6 @@ function refitCurrent(){
 function showMessage(text, anim){
   clearInterval(clockTimer);
   stopAnim();
-  sub.textContent = '';
   main.textContent = text || '';
   dispatchAnim(anim);
 }
@@ -376,11 +404,11 @@ document.getElementById('rotateBtn').addEventListener('click', ()=>{
   localStorage.setItem(ROT_KEY, rotation);
   applyRotation();
 });
-window.addEventListener('resize', applyRotation);
+window.addEventListener('resize', ()=>{ syncOrientation(currentCfg); });
+if(screen.orientation && screen.orientation.addEventListener){
+  screen.orientation.addEventListener('change', ()=>{ syncOrientation(currentCfg); });
+}
 applyRotation();
 </script>
 </body>
 </html>
-
-
-
