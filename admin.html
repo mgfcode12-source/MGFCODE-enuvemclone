@@ -52,8 +52,10 @@
   label{display:block; font-size:12.5px; font-weight:500; color:var(--text-dim); margin-bottom:6px;}
 
   .seg{display:flex; background:var(--neblina); border-radius:12px; padding:3px; gap:3px;}
+  .seg.wrap{flex-wrap:wrap;}
   .seg button{flex:1; padding:9px; background:transparent; border:none; border-radius:9px;
     font-family:inherit; font-size:13px; font-weight:600; color:var(--carvao); opacity:.55; cursor:pointer;}
+  .seg.wrap button{flex:1 1 30%; min-width:80px;}
   .seg button.on{background:var(--carvao); color:var(--lima); opacity:1;}
 
   textarea,select{
@@ -123,6 +125,16 @@
         <label>Duração antes de voltar ao relógio <span class="rangeVal" id="durVal"></span></label>
         <input type="range" id="messageDuration" min="3" max="120" step="1">
       </div>
+      <div class="row" id="animRow">
+        <label>Animação da mensagem</label>
+        <div class="seg wrap" id="animSeg">
+          <button data-v="none">Estático</button>
+          <button data-v="scroll-left">← Passa pra esquerda</button>
+          <button data-v="scroll-right">→ Passa pra direita</button>
+          <button data-v="drop">↓ Desce</button>
+          <button data-v="rise">↑ Sobe</button>
+        </div>
+      </div>
       <div class="row" id="secRow">
         <label>Relógio</label>
         <div class="seg" id="secSeg">
@@ -145,6 +157,13 @@
       <div class="row colorRow">
         <div><label>Fundo</label><input type="color" id="bgColor"></div>
         <div><label>Fonte</label><input type="color" id="fontColor"></div>
+      </div>
+      <div class="row">
+        <label>Estilo do texto</label>
+        <div class="seg" id="glowSeg">
+          <button data-v="0">Nítido</button>
+          <button data-v="1">Brilho neon</button>
+        </div>
       </div>
     </div>
 
@@ -203,7 +222,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'Bem-vindo!', bgColor: '#050505', fontColor: '#39ff88',
   fontFamily: "'Orbitron', sans-serif", fontSize: 100, messageDuration: 15, showSeconds: true,
-  orientation: 'auto'
+  orientation: 'auto', messageAnim: 'none', glow: false
 };
 
 const el = id => document.getElementById(id);
@@ -248,6 +267,7 @@ function setSeg(container, value){
 function refreshRowVisibility(){
   el('msgRow').style.display = state.mode === 'message' ? '' : 'none';
   el('durRow').style.display = state.mode === 'message' ? '' : 'none';
+  el('animRow').style.display = state.mode === 'message' ? '' : 'none';
   el('secRow').style.display = state.mode === 'clock' ? '' : 'none';
 }
 function renderForm(){
@@ -257,6 +277,8 @@ function renderForm(){
   el('durVal').textContent = state.messageDuration + 's';
   setSeg(el('secSeg'), state.showSeconds ? '1' : '0');
   setSeg(el('oriSeg'), state.orientation || 'auto');
+  setSeg(el('animSeg'), state.messageAnim || 'none');
+  setSeg(el('glowSeg'), state.glow ? '1' : '0');
   el('bgColor').value = state.bgColor;
   el('fontColor').value = state.fontColor;
   el('fontFamily').value = state.fontFamily;
@@ -287,27 +309,52 @@ function toRow(s){
   return {
     id: ROW_ID, mode: s.mode, message: s.message, bg_color: s.bgColor, font_color: s.fontColor,
     font_family: s.fontFamily, font_size: s.fontSize, message_duration: s.messageDuration,
-    show_seconds: s.showSeconds, orientation: s.orientation, updated_at: new Date().toISOString()
+    show_seconds: s.showSeconds, orientation: s.orientation, message_anim: s.messageAnim,
+    glow: s.glow, updated_at: new Date().toISOString()
   };
 }
 function fromRow(r){
   return {
     mode: r.mode, message: r.message, bgColor: r.bg_color, fontColor: r.font_color,
     fontFamily: r.font_family, fontSize: Math.min(r.font_size || 100, 100), messageDuration: r.message_duration,
-    showSeconds: r.show_seconds, orientation: r.orientation || 'auto'
+    showSeconds: r.show_seconds, orientation: r.orientation || 'auto',
+    messageAnim: r.message_anim || 'none', glow: !!r.glow
   };
 }
 
 async function commit(){
   suppressRemote = true;
-  const {error} = await sb.from(TABLE).upsert(toRow(state));
-  el('status').textContent = error ? 'Falha ao salvar — tente novamente.' : 'Aplicado ✓ ' + new Date().toLocaleTimeString('pt-BR');
+  const row = toRow(state);
+  const missing = [];
+  let lastError = null;
+  for(let attempt = 0; attempt < 8; attempt++){
+    const {error} = await sb.from(TABLE).upsert(row);
+    if(!error){ lastError = null; break; }
+    lastError = error;
+    const msg = error.message || '';
+    const match = /column [`"']?([a-zA-Z_]+)[`"']?/i.exec(msg) || /[`"']([a-zA-Z_]+)[`"'] column/i.exec(msg);
+    if(match && Object.prototype.hasOwnProperty.call(row, match[1]) && match[1] !== 'id'){
+      missing.push(match[1]);
+      delete row[match[1]];
+      continue;
+    }
+    break; // erro não é de coluna ausente — não adianta tentar de novo
+  }
+  if(lastError){
+    el('status').textContent = 'Falha ao salvar: ' + lastError.message;
+  } else if(missing.length){
+    el('status').textContent = 'Aplicado ✓ — crie no Supabase as colunas: ' + missing.join(', ');
+  } else {
+    el('status').textContent = 'Aplicado ✓ ' + new Date().toLocaleTimeString('pt-BR');
+  }
   setTimeout(()=>{ suppressRemote = false; }, 800);
 }
 
 el('modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.mode=b.dataset.v; renderForm(); commit(); });
 el('secSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.showSeconds = b.dataset.v==='1'; renderForm(); scheduleSave(); });
 el('oriSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.orientation = b.dataset.v; renderForm(); commit(); });
+el('animSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageAnim = b.dataset.v; renderForm(); commit(); });
+el('glowSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.glow = b.dataset.v==='1'; renderForm(); commit(); });
 el('message').addEventListener('input', e=>{ state.message = e.target.value; renderPreview(); scheduleSave(); });
 el('messageDuration').addEventListener('input', e=>{ state.messageDuration = Number(e.target.value); el('durVal').textContent = state.messageDuration+'s'; scheduleSave(); });
 el('bgColor').addEventListener('input', e=>{ state.bgColor = e.target.value; renderPreview(); scheduleSave(); });
@@ -336,4 +383,3 @@ subscribeRealtime();
 </script>
 </body>
 </html>
-
