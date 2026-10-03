@@ -526,6 +526,11 @@ function refreshRowVisibility(){
   el('cdLabelRow').style.display = state.mode === 'countdown' ? '' : 'none';
   el('cdEndRow').style.display = state.mode === 'countdown' ? '' : 'none';
 }
+function renderSchedule(){
+  // O painel atual não possui editor de agenda; mantemos a função para que
+  // a renderização do formulário nunca interrompa o salvamento.
+  return;
+}
 function renderForm(){
   setSeg(el('modeSeg'), state.mode);
   el('message').value = state.message;
