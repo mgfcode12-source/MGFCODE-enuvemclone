@@ -434,6 +434,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const TABLE = 'letreiro_config';
 const ROW_ID = 'main';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let commandChannel = null;
+let commandReady = false;
 
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'BEM-VINDO!', bgColor: '#050505', fontColor: '#ffb000',
@@ -658,33 +660,72 @@ let lastSavedMode = null;
 let lastSavedMessage = null;
 
 async function commit(){
-  if(adminLocked || !presenceReady) { if(!presenceReady) el('status').textContent = 'Conectando o painel…'; return; }
+  if(adminLocked || !presenceReady){
+    if(!presenceReady) el('status').textContent = 'Conectando o painel…';
+    return;
+  }
+
   suppressRemote = true;
   const row = toRow(state);
-  const messageChanged = state.mode === 'message' && (lastSavedMode !== 'message' || lastSavedMessage !== state.message);
+  const messageChanged = state.mode === 'message' &&
+    (lastSavedMode !== 'message' || lastSavedMessage !== state.message);
   if(messageChanged) row.message_started_at = new Date().toISOString();
+
   const missing = [];
   let lastError = null;
+  let saved = false;
+
   for(let attempt = 0; attempt < 12; attempt++){
     const {error} = await sb.from(TABLE).upsert(row);
-    if(!error){ lastError = null; lastSavedMode = state.mode; lastSavedMessage = state.message; break; }
+    if(!error){
+      lastError = null;
+      saved = true;
+      lastSavedMode = state.mode;
+      lastSavedMessage = state.message;
+      break;
+    }
+
     lastError = error;
     const msg = error.message || '';
-    const match = /[`"']([a-zA-Z_]+)[`"']\s*column/i.exec(msg) || /column\s*[`"']([a-zA-Z_]+)[`"']/i.exec(msg);
+    const match = /[`"']([a-zA-Z_]+)[`"']\s*column/i.exec(msg) ||
+                  /column\s*[`"']([a-zA-Z_]+)[`"']/i.exec(msg);
     if(match && Object.prototype.hasOwnProperty.call(row, match[1]) && match[1] !== 'id'){
       missing.push(match[1]);
       delete row[match[1]];
       continue;
     }
-    break; // erro não é de coluna ausente — não adianta tentar de novo
+    break;
   }
+
   if(lastError){
     el('status').textContent = 'Falha ao salvar: ' + lastError.message;
-  } else if(missing.length){
+  }else if(missing.length){
     el('status').textContent = 'Aplicado — crie no Supabase as colunas: ' + missing.join(', ');
-  } else {
+  }else if(saved){
+    // O banco é a autoridade. Primeiro lemos exatamente o que foi persistido.
+    let canonical = null;
+    try{
+      const {data} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
+      canonical = data || null;
+    }catch(e){}
+
+    const commandState = canonical || row;
+
+    // Caminho imediato: o index recebe o comando assim que o admin salva.
+    // Se este canal falhar, Postgres Realtime + polling continuam como redundância.
+    try{
+      if(commandReady && commandChannel){
+        await commandChannel.send({
+          type:'broadcast',
+          event:'state',
+          payload: commandState
+        });
+      }
+    }catch(e){}
+
     el('status').textContent = 'Aplicado ' + new Date().toLocaleTimeString('pt-BR');
   }
+
   setTimeout(()=>{ suppressRemote = false; }, 800);
 }
 
@@ -791,13 +832,34 @@ async function loadInitial(){
   if(data){ Object.assign(state, fromRow(data)); lastSavedMode = state.mode; lastSavedMessage = state.message; renderForm(); }
 }
 function subscribeRealtime(){
-  sb.channel('letreiro-admin')
-    .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, (payload)=>{
+  // Canal exclusivo de comando: ADMIN -> INDEX.
+  // O index não publica configuração neste canal.
+  try{
+    commandChannel = sb.channel('letreiro-command');
+    commandChannel.subscribe(status => {
+      commandReady = (status === 'SUBSCRIBED');
+    });
+  }catch(e){
+    commandReady = false;
+  }
+
+  // Espelho do estado persistido: se outro evento alterar o banco, o admin acompanha.
+  sb.channel('letreiro-admin-db')
+    .on('postgres_changes', {
+      event:'*',
+      schema:'public',
+      table:TABLE,
+      filter:`id=eq.${ROW_ID}`
+    }, payload=>{
       if(suppressRemote || !payload.new) return;
-      Object.assign(state, fromRow(payload.new)); renderForm();
+      Object.assign(state, fromRow(payload.new));
+      lastSavedMode = state.mode;
+      lastSavedMessage = state.message;
+      renderForm();
     })
     .subscribe();
 }
+
 loadInitial();
 subscribeRealtime();
 subscribePresence();
