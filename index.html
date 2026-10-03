@@ -357,13 +357,9 @@ function applyConfig(c){
   keepScreenAwake();
 
   if(c.mode === 'message'){
-    // O tempo da mensagem conta a partir de quando ela foi enviada (hora do servidor)
-    const started = new Date(c.message_started_at || c.updated_at || 0).getTime();
-    const elapsed = (!started || isNaN(started)) ? 0 : (nowMs() - started) / 1000;
-    const remaining = (c.message_duration || 15) - elapsed;
-    if(remaining <= 0){ showClock(); return; }
+    // Mensagem permanece na tela indefinidamente.
+    // Ela só sai quando o modo for alterado para relógio ou contagem regressiva.
     showMessage(c.message, c.message_anim);
-    revertTimer = setTimeout(showClock, remaining * 1000);
   } else if(c.mode === 'countdown'){
     showCountdown();
   } else {
