@@ -421,6 +421,8 @@ function ingest(raw){
 
 /* ===== BANCO: consulta de reserva + tempo real ===== */
 let rtOk = false;
+let commandChannel = null;
+
 async function fetchConfig(){
   if(!sb) return;
   try{
@@ -436,21 +438,47 @@ function schedulePoll(){
 }
 
 function subscribeRealtime(){
-  sb.channel('letreiro-display')
-    .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, payload => {
+  // COMANDO DIRETO: somente recebe. Nunca envia configuração ao admin.
+  try{
+    commandChannel = sb.channel('letreiro-command');
+    commandChannel
+      .on('broadcast', {event:'state'}, payload => {
+        if(payload && payload.payload) ingest(payload.payload);
+      })
+      .subscribe();
+  }catch(e){}
+
+  // FONTE DE VERDADE PERSISTIDA: recupera qualquer mudança perdida.
+  sb.channel('letreiro-display-db')
+    .on('postgres_changes', {
+      event:'*',
+      schema:'public',
+      table:TABLE,
+      filter:`id=eq.${ROW_ID}`
+    }, payload => {
       if(payload.new) ingest(payload.new);
     })
     .subscribe(status => {
       rtOk = (status === 'SUBSCRIBED');
-      if(rtOk) fetchConfig(); // ao (re)conectar, confere se perdeu alguma mudança
+      if(rtOk) fetchConfig();
     });
 
-  // Avisa o painel que esta tela está conectada
+  // Presença é apenas telemetria efêmera para o contador do admin.
   try{
-    const myId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now();
-    const pres = sb.channel('letreiro-presence', {config:{presence:{key: myId}}});
+    const myId = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : String(Math.random()).slice(2) + Date.now();
+
+    const pres = sb.channel('letreiro-presence', {
+      config:{presence:{key: myId}}
+    });
+
     pres.subscribe(async status => {
-      if(status === 'SUBSCRIBED'){ try{ await pres.track({type: 'display', since: Date.now()}); }catch(e){} }
+      if(status === 'SUBSCRIBED'){
+        try{
+          await pres.track({type:'display', since:Date.now()});
+        }catch(e){}
+      }
     });
   }catch(e){}
 }
