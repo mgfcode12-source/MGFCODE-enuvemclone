@@ -523,6 +523,76 @@ body.night .settingsSeg button.on{background:var(--solare)!important;color:var(-
   .settingsSheet{width:min(470px,100%)!important;max-height:calc(100vh - 82px)!important;border-radius:26px!important;}
 }
 </style>
+
+<style id="settings-fix-v2">
+/* FIX DEFINITIVO — janela de configurações sem blur da página */
+body.settings-open #app{filter:none!important;}
+body.settings-open{overflow:hidden!important;}
+.settingsGear{
+  position:fixed!important;
+  left:272px!important; right:auto!important; top:22px!important;
+  z-index:5000!important;
+  width:46px!important;height:46px!important;
+}
+.settingsOverlay{
+  position:fixed!important; inset:0!important;
+  z-index:4999!important;
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:flex-start!important;
+  padding:80px 24px 24px 272px!important;
+  box-sizing:border-box!important;
+  background:rgba(26,26,26,.20)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  transition:opacity .24s ease,visibility 0s linear .24s!important;
+}
+.settingsOverlay.open{
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  transition:opacity .24s ease,visibility 0s linear 0s!important;
+}
+.settingsSheet{
+  position:relative!important;
+  z-index:5001!important;
+  display:flex!important;
+  flex-direction:column!important;
+  width:470px!important;
+  max-width:calc(100vw - 320px)!important;
+  max-height:calc(100vh - 104px)!important;
+  min-height:0!important;
+  margin:0!important;
+  overflow:auto!important;
+  box-sizing:border-box!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  transform:translateY(-10px) scale(.97)!important;
+  transform-origin:top left!important;
+  background:#fffdf8!important;
+  border:1px solid rgba(26,26,26,.10)!important;
+  border-radius:28px!important;
+  box-shadow:0 30px 90px rgba(26,26,26,.24),0 8px 28px rgba(26,26,26,.10)!important;
+  transition:transform .34s cubic-bezier(.22,1,.36,1),opacity .22s ease,visibility 0s linear .34s!important;
+}
+.settingsOverlay.open .settingsSheet{
+  opacity:1!important;
+  visibility:visible!important;
+  transform:translateY(0) scale(1)!important;
+  transition:transform .34s cubic-bezier(.22,1,.36,1),opacity .22s ease,visibility 0s linear 0s!important;
+}
+body.night .settingsOverlay{background:rgba(0,0,0,.34)!important;}
+body.night .settingsSheet{background:#181916!important;color:#f4f5f7!important;}
+@media(max-width:980px){
+  .settingsGear{left:14px!important;right:auto!important;top:12px!important;width:44px!important;height:44px!important;}
+  .settingsOverlay{align-items:flex-end!important;justify-content:center!important;padding:12px!important;}
+  .settingsSheet{width:min(470px,100%)!important;max-width:none!important;max-height:calc(100vh - 24px)!important;border-radius:26px!important;transform:translateY(18px) scale(.98)!important;}
+  .settingsOverlay.open .settingsSheet{transform:translateY(0) scale(1)!important;}
+}
+</style>
 </head>
 <body>
 <div id="app">
@@ -1413,5 +1483,30 @@ startSupabase();
 })();
 </script>
 
+
+<script id="settings-fix-v2-js">
+(function(){
+  const gear=document.getElementById('settingsGear');
+  const overlay=document.getElementById('settingsOverlay');
+  const closeBtn=document.getElementById('settingsClose');
+  if(!gear||!overlay||!closeBtn)return;
+  function openSettings(){
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden','false');
+    document.body.classList.add('settings-open');
+    document.body.style.overflow='hidden';
+  }
+  function closeSettings(){
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden','true');
+    document.body.classList.remove('settings-open');
+    document.body.style.overflow='';
+  }
+  gear.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();openSettings();});
+  closeBtn.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();closeSettings();});
+  overlay.addEventListener('click',function(e){if(e.target===overlay)closeSettings();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeSettings();});
+})();
+</script>
 </body>
 </html>
