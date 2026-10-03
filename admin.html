@@ -637,7 +637,7 @@ function toRow(s){
     font_family: s.fontFamily, font_size: s.fontSize, message_duration: s.messageDuration,
     show_seconds: s.showSeconds, orientation: 'landscape', message_anim: s.messageAnim,
     message_speed: s.messageSpeed, keep_awake: s.keepAwake, glow: s.glow,
-    countdown_target: s.countdownTarget, countdown_label: s.countdownLabel || '', countdown_end: s.countdownEnd,
+    countdown_target: s.countdownTarget ? s.countdownTarget : null, countdown_label: s.countdownLabel || '', countdown_end: s.countdownEnd || 'clock',
     countdown_kind: s.countdownKind, countdown_time_of_day: s.countdownTimeOfDay,
     countdown_days: s.countdownDays, countdown_hours: s.countdownHours, countdown_minutes: s.countdownMinutes,
     updated_at: new Date().toISOString()
