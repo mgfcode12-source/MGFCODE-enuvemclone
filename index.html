@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Letreiro LED</title>
+<!-- REALTIME-FIX v2 -->
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#050505">
 <meta name="mobile-web-app-capable" content="yes">
@@ -54,6 +55,14 @@ const TABLE = 'letreiro_config';
 const ROW_ID = 'main';
 const CACHE_KEY = 'letreiroCfgCache';
 const RELOAD_KEY = 'letreiroReloadToken';
+
+// Atualização instantânea entre abas/janelas do mesmo navegador.
+let localCommandChannel = null;
+try{
+  if('BroadcastChannel' in window){
+    localCommandChannel = new BroadcastChannel('letreiro-local-command');
+  }
+}catch(e){ localCommandChannel = null; }
 
 // Se a biblioteca não carregar (sem internet na abertura), o relógio continua funcionando.
 const sb = (window.supabase && window.supabase.createClient)
@@ -432,30 +441,48 @@ async function fetchConfig(){
   }catch(e){}
 }
 
-// Realtime entrega mudanças imediatamente. O polling é só uma rede de segurança: 60 s normal / 15 s se o Realtime cair.
+// Realtime/Broadcast são o caminho principal.
+// Polling de 1 segundo garante que a tela ainda atualize mesmo se o Realtime
+// estiver desativado/quebrado no projeto Supabase.
+let pollInFlight = false;
+async function fastPoll(){
+  if(pollInFlight) return;
+  pollInFlight = true;
+  try{ await fetchConfig(); }finally{ pollInFlight = false; }
+}
 function schedulePoll(){
-  setTimeout(async () => { await fetchConfig(); schedulePoll(); }, rtOk ? 60000 : 15000);
+  setTimeout(async () => {
+    await fastPoll();
+    schedulePoll();
+  }, 1000);
 }
 
 function subscribeRealtime(){
+  // CAMINHO 0 — mesma aba/janela do navegador: praticamente instantâneo.
+  try{
+    if(localCommandChannel){
+      localCommandChannel.onmessage = event => {
+        if(event && event.data) ingest(event.data);
+      };
+    }
+    window.addEventListener('storage', event => {
+      if(event.key !== CACHE_KEY || !event.newValue) return;
+      try{
+        const value = JSON.parse(event.newValue);
+        if(value) ingest(value);
+      }catch(e){}
+    });
+  }catch(e){}
+
+  // CAMINHO 1 — outros aparelhos: Supabase Broadcast.
   // COMANDO DIRETO: somente recebe. Nunca envia configuração ao admin.
   try{
     commandChannel = sb.channel('letreiro-command');
     commandChannel
       .on('broadcast', {event:'state'}, payload => {
-        try{
-          const incoming = payload && payload.payload;
-          if(!incoming || typeof incoming !== 'object') return;
-          ingest(incoming);
-        }catch(error){
-          console.warn('Comando do Admin inválido:', error);
-        }
+        if(payload && payload.payload) ingest(payload.payload);
       })
-      .subscribe(status => {
-        if(status === 'SUBSCRIBED'){
-          fetchConfig();
-        }
-      });
+      .subscribe();
   }catch(e){}
 
   // FONTE DE VERDADE PERSISTIDA: recupera qualquer mudança perdida.
@@ -549,7 +576,8 @@ document.addEventListener('pointerdown', keepScreenAwake, {passive:true});
   if(sb){
     syncTime().then(fetchConfig);
     subscribeRealtime();
-    schedulePoll();
+    fastPoll();          // pega a configuração imediatamente
+    schedulePoll();      // e confere a cada 1 segundo
     setInterval(syncTime, 10 * 60 * 1000);
   } else {
     // sem biblioteca (sem internet na abertura): tenta de novo quando a internet voltar
