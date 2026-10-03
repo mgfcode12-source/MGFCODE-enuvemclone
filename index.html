@@ -430,9 +430,9 @@ async function fetchConfig(){
   }catch(e){}
 }
 
-// Tempo real avisa na hora. A consulta é só uma garantia: a cada 30 s (ou 10 s se o tempo real cair).
+// Realtime entrega mudanças imediatamente. O polling é só uma rede de segurança: 60 s normal / 15 s se o Realtime cair.
 function schedulePoll(){
-  setTimeout(async () => { await fetchConfig(); schedulePoll(); }, rtOk ? 30000 : 10000);
+  setTimeout(async () => { await fetchConfig(); schedulePoll(); }, rtOk ? 60000 : 15000);
 }
 
 function subscribeRealtime(){
@@ -448,9 +448,9 @@ function subscribeRealtime(){
   // Avisa o painel que esta tela está conectada
   try{
     const myId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now();
-    const pres = sb.channel('letreiro-telas', {config:{presence:{key: myId}}});
+    const pres = sb.channel('letreiro-presence', {config:{presence:{key: myId}}});
     pres.subscribe(async status => {
-      if(status === 'SUBSCRIBED'){ try{ await pres.track({since: Date.now()}); }catch(e){} }
+      if(status === 'SUBSCRIBED'){ try{ await pres.track({type: 'display', since: Date.now()}); }catch(e){} }
     });
   }catch(e){}
 }
