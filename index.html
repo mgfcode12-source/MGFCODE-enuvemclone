@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Letreiro LED</title>
-<!-- REALTIME-FIX v2 -->
+<!-- SUPABASE-COMMS-V3 -->
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#050505">
 <meta name="mobile-web-app-capable" content="yes">
@@ -55,14 +55,6 @@ const TABLE = 'letreiro_config';
 const ROW_ID = 'main';
 const CACHE_KEY = 'letreiroCfgCache';
 const RELOAD_KEY = 'letreiroReloadToken';
-
-// Atualização instantânea entre abas/janelas do mesmo navegador.
-let localCommandChannel = null;
-try{
-  if('BroadcastChannel' in window){
-    localCommandChannel = new BroadcastChannel('letreiro-local-command');
-  }
-}catch(e){ localCommandChannel = null; }
 
 // Se a biblioteca não carregar (sem internet na abertura), o relógio continua funcionando.
 const sb = (window.supabase && window.supabase.createClient)
@@ -428,98 +420,178 @@ function ingest(raw){
   applyConfig(merged);
 }
 
-/* ===== BANCO: consulta de reserva + tempo real ===== */
+/* ============================================================
+   SUPABASE — COMUNICAÇÃO NOVA
+   ============================================================
+
+   FONTE ÚNICA DE VERDADE:
+       public.letreiro_config / id = main
+
+   FLUXO:
+       ADMIN
+         ↓
+       upsert()
+         ↓
+       PostgreSQL
+         ↓
+       Supabase Realtime / postgres_changes
+         ↓
+       INDEX
+         ↓
+       ingest()
+         ↓
+       tela
+
+   Não existe:
+   - Broadcast de configuração
+   - polling para funcionamento normal
+   - sincronização por localStorage
+   - Presence para configuração
+
+   O localStorage abaixo serve SOMENTE como cache de inicialização
+   offline; ele nunca substitui o banco.
+   ============================================================ */
+
 let rtOk = false;
-let commandChannel = null;
+let dbChannel = null;
 
 async function fetchConfig(){
-  if(!sb) return;
-  try{
-    const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).maybeSingle();
-    if(error || !data) return;
-    ingest(data);
-  }catch(e){}
-}
+  if(!sb) return false;
 
-// Realtime/Broadcast são o caminho principal.
-// Polling de 1 segundo garante que a tela ainda atualize mesmo se o Realtime
-// estiver desativado/quebrado no projeto Supabase.
-let pollInFlight = false;
-async function fastPoll(){
-  if(pollInFlight) return;
-  pollInFlight = true;
-  try{ await fetchConfig(); }finally{ pollInFlight = false; }
-}
-function schedulePoll(){
-  setTimeout(async () => {
-    await fastPoll();
-    schedulePoll();
-  }, 1000);
+  try{
+    const {data, error} = await sb
+      .from(TABLE)
+      .select('*')
+      .eq('id', ROW_ID)
+      .single();
+
+    if(error) throw error;
+    if(!data) return false;
+
+    ingest(data);
+    return true;
+  }catch(error){
+    console.error('[LETREIRO] leitura Supabase:', error);
+    return false;
+  }
 }
 
 function subscribeRealtime(){
-  // CAMINHO 0 — mesma aba/janela do navegador: praticamente instantâneo.
+  if(!sb) return;
+
   try{
-    if(localCommandChannel){
-      localCommandChannel.onmessage = event => {
-        if(event && event.data) ingest(event.data);
-      };
-    }
-    window.addEventListener('storage', event => {
-      if(event.key !== CACHE_KEY || !event.newValue) return;
-      try{
-        const value = JSON.parse(event.newValue);
-        if(value) ingest(value);
-      }catch(e){}
-    });
-  }catch(e){}
+    /*
+      ÚNICA assinatura de configuração.
 
-  // CAMINHO 1 — outros aparelhos: Supabase Broadcast.
-  // COMANDO DIRETO: somente recebe. Nunca envia configuração ao admin.
+      O evento UPDATE feito pelo admin chega diretamente aqui.
+      Não existe Broadcast intermediário.
+    */
+    dbChannel = sb
+      .channel('letreiro-display-v2')
+      .on(
+        'postgres_changes',
+        {
+          event:'*',
+          schema:'public',
+          table:TABLE,
+          filter:`id=eq.${ROW_ID}`
+        },
+        payload => {
+          console.log('[LETREIRO] Realtime recebido:', payload.eventType, payload.new);
+
+          if(payload.new){
+            ingest(payload.new);
+          }
+        }
+      )
+      .subscribe(async status => {
+        console.log('[LETREIRO] Realtime:', status);
+
+        rtOk = status === 'SUBSCRIBED';
+
+        /*
+          Assim que a assinatura fica pronta, fazemos UMA leitura.
+          Isso cobre uma alteração que tenha ocorrido antes da conexão.
+        */
+        if(rtOk){
+          await fetchConfig();
+        }
+      });
+
+  }catch(error){
+    rtOk = false;
+    console.error('[LETREIRO] erro ao conectar Realtime:', error);
+  }
+}
+
+/*
+  Presença é somente para o contador de aparelhos no admin.
+  Ela não participa da configuração do letreiro.
+*/
+function subscribePresence(){
   try{
-    commandChannel = sb.channel('letreiro-command');
-    commandChannel
-      .on('broadcast', {event:'state'}, payload => {
-        if(payload && payload.payload) ingest(payload.payload);
-      })
-      .subscribe();
-  }catch(e){}
+    const myId =
+      (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : String(Math.random()).slice(2) + Date.now();
 
-  // FONTE DE VERDADE PERSISTIDA: recupera qualquer mudança perdida.
-  sb.channel('letreiro-display-db')
-    .on('postgres_changes', {
-      event:'*',
-      schema:'public',
-      table:TABLE,
-      filter:`id=eq.${ROW_ID}`
-    }, payload => {
-      if(payload.new) ingest(payload.new);
-    })
-    .subscribe(status => {
-      rtOk = (status === 'SUBSCRIBED');
-      if(rtOk) fetchConfig();
+    const channel = sb.channel('letreiro-presence-v2', {
+      config:{presence:{key:myId}}
     });
 
-  // Presença é apenas telemetria efêmera para o contador do admin.
-  try{
-    const myId = (window.crypto && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : String(Math.random()).slice(2) + Date.now();
-
-    const pres = sb.channel('letreiro-presence', {
-      config:{presence:{key: myId}}
-    });
-
-    pres.subscribe(async status => {
+    channel.subscribe(async status => {
       if(status === 'SUBSCRIBED'){
         try{
-          await pres.track({type:'display', since:Date.now()});
+          await channel.track({
+            type:'display',
+            since:Date.now()
+          });
         }catch(e){}
       }
     });
-  }catch(e){}
+  }catch(error){
+    console.warn('[LETREIRO] Presence indisponível:', error);
+  }
 }
 
+/*
+  Reconecta o canal se o navegador voltar do modo offline.
+*/
+async function restartRealtime(){
+  try{
+    if(dbChannel){
+      await sb.removeChannel(dbChannel);
+      dbChannel = null;
+    }
+  }catch(e){}
+
+  rtOk = false;
+  subscribeRealtime();
+  await fetchConfig();
+}
+
+window.addEventListener('online', async () => {
+  await syncTime();
+  await restartRealtime();
+});
+
+/*
+  Se a aba ficar visível novamente, garante que o canal e o estado
+  continuam vivos.
+*/
+document.addEventListener('visibilitychange', async () => {
+  if(document.visibilityState === 'visible'){
+    keepScreenAwake();
+    requestLandscape();
+    applyRotation();
+
+    if(!rtOk){
+      await restartRealtime();
+    }else{
+      await fetchConfig();
+    }
+  }
+});
 /* ===== TELA SEM DESLIGAR (Wake Lock) ===== */
 let wakeLock = null;
 function releaseWake(){
@@ -537,17 +609,8 @@ async function keepScreenAwake(){
   }catch(e){}
 }
 
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible'){
-    keepScreenAwake();
-    requestLandscape();
-    applyRotation();
-    fetchConfig();
-  }
-});
 window.addEventListener('resize', () => applyRotation());
 window.addEventListener('orientationchange', () => setTimeout(() => { applyRotation(); requestLandscape(); }, 100));
-window.addEventListener('online', () => { syncTime(); fetchConfig(); });
 document.addEventListener('pointerdown', keepScreenAwake, {passive:true});
 
 /* ===== INÍCIO ===== */
@@ -574,10 +637,11 @@ document.addEventListener('pointerdown', keepScreenAwake, {passive:true});
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => refitCurrent());
 
   if(sb){
-    syncTime().then(fetchConfig);
-    subscribeRealtime();
-    fastPoll();          // pega a configuração imediatamente
-    schedulePoll();      // e confere a cada 1 segundo
+    syncTime().then(async () => {
+      await fetchConfig();
+      subscribeRealtime();
+      subscribePresence();
+    });
     setInterval(syncTime, 10 * 60 * 1000);
   } else {
     // sem biblioteca (sem internet na abertura): tenta de novo quando a internet voltar
