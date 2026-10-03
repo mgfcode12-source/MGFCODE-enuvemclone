@@ -143,7 +143,9 @@
     overflow:hidden; transition:background .3s,color .3s, width .25s ease, height .25s ease; border:6px solid #202329; position:relative;
   }
   .previewBox.landscape{width:340px; height:calc(340px * 9 / 19.5);}
-  #previewContent{width:100%; line-height:1.15; word-wrap:break-word; white-space:pre-wrap; font-weight:700;}
+  #previewContent{width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.15; word-wrap:break-word; white-space:pre-wrap; font-weight:700;}
+  #previewMain{max-width:100%;}
+  #previewSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
   .preview-caption{text-align:center; font-size:11px; color:var(--text-dimmer); margin-top:12px;}
 
   #saveBtn{width:100%; padding:14px; border:none; border-radius:11px;
@@ -405,6 +407,7 @@
             <div class="previewBox landscape" id="preview">
               <div id="previewContent">
                 <div id="previewMain"></div>
+                <div id="previewSub"></div>
               </div>
             </div>
           </div>
@@ -449,7 +452,9 @@ const DEFAULT_CONFIG = {
 
 const el = id => document.getElementById(id);
 const state = Object.assign({}, DEFAULT_CONFIG);
+let savedState = Object.assign({}, DEFAULT_CONFIG);
 let saveTimer = null;
+let dirty = false;
 let suppressRemote = false;
 
 /* ===== Navegação (sidebar / abas) ===== */
@@ -494,14 +499,14 @@ function fitPreviewText(){
   const box = el('preview');
   const mainEl = el('previewMain');
   const innerW = box.clientWidth * 0.92;
-  const innerH = box.clientHeight * 0.9;
+  const innerH = box.clientHeight * 0.82;
   const lineCount = String(mainEl.textContent || ' ').split('\n').length;
+  const subExtra = el('previewSub').textContent ? 0.42 : 0;
 
   const REF = 200;
   const refW = widestLineWidth(mainEl.textContent, REF, state.fontFamily);
   const sizeByWidth = (innerW / refW) * REF;
-  const lineHeightFactor = 1.15 * lineCount;
-  const sizeByHeight = innerH / lineHeightFactor;
+  const sizeByHeight = innerH / (1.15 * lineCount + subExtra);
 
   const scale = (state.fontSize || 100) / 100;
   const fontPx = Math.max(6, Math.min(sizeByWidth, sizeByHeight) * scale);
@@ -564,9 +569,11 @@ function renderForm(){
 }
 function renderPreview(){
   const box = el('preview');
+  const sub = el('previewSub');
   box.style.background = state.bgColor;
   box.style.color = state.fontColor;
   box.style.fontFamily = state.fontFamily;
+  sub.textContent = '';
   if(state.mode === 'message'){
     el('previewMain').textContent = state.message || ' ';
   } else if(state.mode === 'countdown'){
@@ -575,7 +582,9 @@ function renderPreview(){
       const now = new Date();
       el('previewMain').textContent = now.toLocaleTimeString('pt-BR', state.showSeconds ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false} : {hour:'2-digit',minute:'2-digit',hour12:false});
     } else {
-      el('previewMain').textContent = cd;
+      const parts = String(cd).split('\n');
+      el('previewMain').textContent = parts[parts.length - 1];
+      if(state.countdownLabel) sub.textContent = state.countdownLabel;
     }
   } else {
     const now = new Date();
@@ -583,6 +592,7 @@ function renderPreview(){
   }
   fitPreviewText();
 }
+
 function formatCountdown(){
   if(!state.countdownTarget) return state.countdownLabel ? state.countdownLabel + '\n0:00' : '0:00';
   const target = new Date(state.countdownTarget).getTime();
@@ -604,10 +614,14 @@ function formatCountdown(){
     else body = `${m}:${pad(s)}`;
   }
   if(body === null) return null;
-  return state.countdownLabel ? state.countdownLabel + '\n' + body : body;
+  return body;
 }
 window.addEventListener('resize', ()=> fitPreviewText());
-function scheduleSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(commit, 450); }
+function markDirty(){
+  dirty = true;
+  if(el('status')) el('status').textContent = 'Alterações não aplicadas — clique em Aplicar nas telas.';
+}
+function scheduleSave(){ markDirty(); }
 
 /* ===== Paletas de cores prontas ===== */
 const PALETTES = [
@@ -629,7 +643,7 @@ function renderPalettes(){
     b.style.boxShadow = `inset 0 0 0 3px ${p.font}`;
     b.addEventListener('click', ()=>{
       state.bgColor = p.bg; state.fontColor = p.font;
-      renderForm(); commit();
+      renderForm(); markDirty();
     });
     wrap.appendChild(b);
   });
@@ -712,6 +726,8 @@ async function commit(){
 
     if(data){
       Object.assign(state, fromRow(data));
+      savedState = Object.assign({}, state);
+      dirty = false;
       lastSavedMode = state.mode;
       lastSavedMessage = state.message;
       renderForm();
@@ -730,8 +746,8 @@ async function commit(){
   }
 }
 
-el('modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.mode=b.dataset.v; renderForm(); commit(); });
-el('cdKindSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.countdownKind = b.dataset.v; renderForm(); });
+el('modeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.mode=b.dataset.v; renderForm(); markDirty(); });
+el('cdKindSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.countdownKind = b.dataset.v; renderForm(); markDirty(); });
 el('cdDaysVal').addEventListener('input', e=>{ state.countdownDays = Math.max(0, Number(e.target.value) || 0); });
 el('cdHoursVal').addEventListener('input', e=>{ state.countdownHours = Math.max(0, Math.min(23, Number(e.target.value) || 0)); });
 el('cdMinutesVal').addEventListener('input', e=>{ state.countdownMinutes = Math.max(0, Math.min(59, Number(e.target.value) || 0)); });
@@ -750,20 +766,20 @@ el('cdStartBtn').addEventListener('click', ()=>{
   }
   state.countdownTarget = target.toISOString();
   renderForm();
-  commit();
+  markDirty();
 });
 el('countdownLabel').addEventListener('input', e=>{ state.countdownLabel = e.target.value; renderPreview(); scheduleSave(); });
-el('cdEndSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.countdownEnd = b.dataset.v; renderForm(); commit(); });
-el('secSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.showSeconds = b.dataset.v==='1'; renderForm(); scheduleSave(); });
-el('animSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageAnim = b.dataset.v; renderForm(); commit(); });
-el('speedSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageSpeed = b.dataset.v; renderForm(); commit(); });
-el('glowSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.glow = b.dataset.v==='1'; renderForm(); commit(); });
-el('wakeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.keepAwake = b.dataset.v==='1'; renderForm(); commit(); });
+el('cdEndSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.countdownEnd = b.dataset.v; renderForm(); markDirty(); });
+el('secSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.showSeconds = b.dataset.v==='1'; renderForm(); markDirty(); });
+el('animSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageAnim = b.dataset.v; renderForm(); markDirty(); });
+el('speedSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageSpeed = b.dataset.v; renderForm(); markDirty(); });
+el('glowSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.glow = b.dataset.v==='1'; renderForm(); markDirty(); });
+el('wakeSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.keepAwake = b.dataset.v==='1'; renderForm(); markDirty(); });
 el('message').addEventListener('input', e=>{ state.message = e.target.value; renderPreview(); scheduleSave(); });
 el('messageDuration').addEventListener('input', e=>{ state.messageDuration = Number(e.target.value); el('durVal').textContent = state.messageDuration+'s'; scheduleSave(); });
 el('bgColor').addEventListener('input', e=>{ state.bgColor = e.target.value; renderPreview(); scheduleSave(); });
 el('fontColor').addEventListener('input', e=>{ state.fontColor = e.target.value; renderPreview(); scheduleSave(); });
-el('fontFamily').addEventListener('change', e=>{ state.fontFamily = e.target.value; renderPreview(); commit(); });
+el('fontFamily').addEventListener('change', e=>{ state.fontFamily = e.target.value; renderPreview(); markDirty(); });
 el('fontSize').addEventListener('input', e=>{ state.fontSize = Number(e.target.value); el('sizeVal').textContent = state.fontSize+'%'; renderPreview(); scheduleSave(); });
 el('saveBtn').addEventListener('click', commit);
 el('forceReloadBtn').addEventListener('click', async ()=>{
@@ -888,6 +904,8 @@ async function loadInitial(){
 
     if(data){
       Object.assign(state, fromRow(data));
+      savedState = Object.assign({}, state);
+      dirty = false;
       lastSavedMode = state.mode;
       lastSavedMessage = state.message;
       renderForm();
@@ -921,10 +939,15 @@ function subscribeRealtime(){
 
           if(!payload.new) return;
 
-          Object.assign(state, fromRow(payload.new));
-          lastSavedMode = state.mode;
-          lastSavedMessage = state.message;
-          renderForm();
+          savedState = fromRow(payload.new);
+          // Se o usuário estiver editando, não sobrescrevemos o rascunho.
+          // A configuração só muda no banco quando ele clicar em Aplicar.
+          if(!dirty){
+            Object.assign(state, savedState);
+            lastSavedMode = state.mode;
+            lastSavedMessage = state.message;
+            renderForm();
+          }
         }
       )
       .subscribe(status => {
