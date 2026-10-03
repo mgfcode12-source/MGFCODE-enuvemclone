@@ -22,6 +22,7 @@
   #screen{
     position:fixed; top:50%; left:50%;
     width:100vw; height:100vh;
+    transform:translate(-50%,-50%);
     display:flex; align-items:center; justify-content:center;
     text-align:center; overflow:hidden;
     padding:0; margin:0;
@@ -35,15 +36,6 @@
   }
   #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
   #screen.offline #screenContent{opacity:.35;}
-
-  /* No celular em pé, o conteúdo é girado visualmente para continuar HORIZONTAL. */
-  @media (max-width: 900px) and (orientation: portrait){
-    #screen{
-      width:100vh;
-      height:100vw;
-      transform:translate(-50%,-50%) rotate(90deg);
-    }
-  }
 </style>
 </head>
 <body>
@@ -60,23 +52,57 @@ const SUPABASE_URL = 'https://qwqfmbojxcorupydfgsh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF3cWZtYm9qeGNvcnVweWRmZ3NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NTA4OTgsImV4cCI6MjEwMjMyNjg5OH0.M21WgJZcjzfyhw81Z1Jwh-UyloUha1z8urtPN6qnZPk';
 const TABLE = 'letreiro_config';
 const ROW_ID = 'main';
+const CACHE_KEY = 'letreiroCfgCache';
+const RELOAD_KEY = 'letreiroReloadToken';
 
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Se a biblioteca não carregar (sem internet na abertura), o relógio continua funcionando.
+const sb = (window.supabase && window.supabase.createClient)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
 
 const DEFAULT_CONFIG = {
-  mode: 'clock', message: 'Bem-vindo!', bg_color: '#050505', font_color: '#39ff88',
-  font_family: "'Orbitron', sans-serif", font_size: 100, message_duration: 15, show_seconds: true,
-  orientation: 'auto', message_anim: 'none', glow: false,
+  mode: 'clock', message: 'BEM-VINDO!', bg_color: '#050505', font_color: '#ffb000',
+  font_family: "'VT323', monospace", font_size: 100, message_duration: 15, show_seconds: true,
+  message_anim: 'scroll-left', message_speed: 'normal', glow: false, keep_awake: true,
   countdown_target: null, countdown_label: '', countdown_end: 'clock',
-  schedule_enabled: false, schedule: [], updated_at: null
+  message_started_at: null, updated_at: null, reload_token: null
 };
+const SPEEDS = {slow: 70, normal: 130, fast: 220}; // pixels por segundo
 
 const screenEl = document.getElementById('screen');
 const content = document.getElementById('screenContent');
 const main = document.getElementById('screenMain');
 const sub = document.getElementById('screenSub');
 
-let clockTimer = null, revertTimer = null, currentCfg = DEFAULT_CONFIG;
+let cfg = DEFAULT_CONFIG;          // configuração que está valendo
+let baseCfg = DEFAULT_CONFIG;
+let currentView = 'clock';         // o que está REALMENTE na tela: clock | message | countdown
+let clockTimer = null, revertTimer = null;
+let lastConfigKey = null, lastRaw = {};
+let lastOk = Date.now();
+
+/* ===== HORA DO SERVIDOR =====
+   Usa a hora do servidor (não a do celular) para o relógio, a mensagem e a contagem.
+   Assim, um celular com a hora errada não atrapalha nada. */
+let timeOffset = 0;
+const nowMs = () => Date.now() + timeOffset;
+
+async function syncTime(){
+  if(!sb) return;
+  try{
+    const t0 = Date.now();
+    const {data, error} = await sb.rpc('server_now');
+    const t1 = Date.now();
+    if(error || !data) return;
+    const server = new Date(data).getTime();
+    if(isNaN(server)) return;
+    let off = server - (t0 + t1) / 2;
+    if(Math.abs(off) < 1500) off = 0; // diferença pequena: ignora, evita tremer o relógio
+    const changed = Math.abs(off - timeOffset) > 1000;
+    timeOffset = off;
+    if(changed && baseCfg) applyConfig(baseCfg);
+  }catch(e){}
+}
 
 /* ===== AJUSTE AUTOMÁTICO: o texto sempre ocupa a tela inteira ===== */
 const measureCanvas = document.createElement('canvas');
@@ -89,35 +115,33 @@ function widestLineWidth(text, fontPx, fontFamily){
 }
 
 function fitDisplay(){
-  const family = currentCfg.font_family;
+  const family = cfg.font_family;
   const innerW = screenEl.clientWidth * 0.92;
   const innerH = screenEl.clientHeight * 0.82;
   const lineCount = String(main.textContent || ' ').split('\n').length;
+  const subExtra = sub.textContent ? 0.42 : 0; // espaço da linha pequena (rótulo)
 
   const REF = 200;
   const refW = widestLineWidth(main.textContent, REF, family);
   const sizeByWidth = (innerW / refW) * REF;
-  const sizeByHeight = innerH / (1.15 * lineCount);
+  const sizeByHeight = innerH / (1.15 * lineCount + subExtra);
 
-  const scale = (currentCfg.font_size || 100) / 100;
+  const scale = (cfg.font_size || 100) / 100;
   const fontPx = Math.max(14, Math.min(sizeByWidth, sizeByHeight) * scale);
   content.style.fontSize = fontPx + 'px';
 }
 
-/* ===== ORIENTAÇÃO =====
-   O letreiro sempre é HORIZONTAL.
-   Se o celular estiver fisicamente em pé, o CSS gira a área visual 90°.
-   Se o navegador permitir, também pedimos ao sistema para travar em landscape.
-*/
-const ROT_KEY = 'letreiroRotationDeg';
-let rotation = 0;
-
-function applyRotation(){
-  rotation = 0;
+/* ===== ORIENTAÇÃO: o letreiro é sempre HORIZONTAL ===== */
+let lastDimKey = '';
+function applyRotation(force){
   const vw = window.innerWidth, vh = window.innerHeight;
   const portrait = window.matchMedia('(orientation: portrait)').matches;
+  const rotate = portrait && window.matchMedia('(max-width: 900px)').matches;
+  const dimKey = vw + 'x' + vh + 'x' + rotate;
+  if(!force && dimKey === lastDimKey) return; // nada mudou: não reinicia a animação
+  lastDimKey = dimKey;
 
-  if (portrait && window.matchMedia('(max-width: 900px)').matches) {
+  if(rotate){
     screenEl.style.width = vh + 'px';
     screenEl.style.height = vw + 'px';
     screenEl.style.transform = 'translate(-50%, -50%) rotate(90deg)';
@@ -130,47 +154,33 @@ function applyRotation(){
 }
 
 async function requestLandscape(){
-  try {
-    if (screen.orientation && screen.orientation.lock) {
-      await screen.orientation.lock('landscape');
-    }
-  } catch(e) {
-    // Alguns navegadores só permitem lock em tela cheia/PWA.
-    // O CSS acima continua garantindo a posição horizontal.
-  }
+  try{
+    if(screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+  }catch(e){ /* alguns navegadores só permitem em tela cheia/PWA; o CSS garante o horizontal */ }
 }
 
-function syncOrientation(cfg){
-  // Ignora qualquer orientação salva/configurada no admin: o letreiro é sempre horizontal.
-  rotation = 0;
-  localStorage.setItem(ROT_KEY, '0');
-  applyRotation();
-  requestLandscape();
-}
-
-function styleScreen(cfg){
-  screenEl.style.background = cfg.bg_color;
-  screenEl.style.color = cfg.font_color;
-  screenEl.style.fontFamily = cfg.font_family;
-  if(cfg.glow){
+let lastFont = '';
+function styleScreen(c){
+  screenEl.style.background = c.bg_color;
+  screenEl.style.color = c.font_color;
+  screenEl.style.fontFamily = c.font_family;
+  if(c.glow){
     content.style.textShadow = '0 0 .08em currentColor, 0 0 .22em currentColor';
     content.style.filter = 'drop-shadow(0 0 3px currentColor)';
   } else {
     content.style.textShadow = 'none';
     content.style.filter = 'none';
   }
+  // Mede de novo quando a fonte terminar de carregar (senão o tamanho sai errado)
+  if(c.font_family !== lastFont){
+    lastFont = c.font_family;
+    if(document.fonts && document.fonts.load){
+      document.fonts.load(`700 40px ${c.font_family}`).then(() => refitCurrent()).catch(() => {});
+    }
+  }
 }
 
-function tickClock(){
-  const now = new Date();
-  const opts = currentCfg.show_seconds
-    ? {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}
-    : {hour:'2-digit',minute:'2-digit',hour12:false};
-  main.textContent = now.toLocaleTimeString('pt-BR', opts);
-  sub.textContent = '';
-  fitDisplay();
-}
-
+/* ===== ANIMAÇÕES ===== */
 let activeAnim = null;
 function stopAnim(){
   if(activeAnim){ activeAnim.cancel(); activeAnim = null; }
@@ -182,55 +192,10 @@ function stopAnim(){
   content.style.transform = '';
 }
 
-function showClock(){
-  stopAnim();
-  clearInterval(clockTimer);
-  tickClock();
-  clockTimer = setInterval(tickClock, 1000);
-}
-
-function formatCountdownParts(cfg){
-  if(!cfg.countdown_target) return null;
-  const target = new Date(cfg.countdown_target).getTime();
-  if(isNaN(target)) return null;
-  const diff = target - Date.now();
-  if(diff <= 0){
-    if(cfg.countdown_end === 'zeros') return '0:00';
-    return 'DONE';
-  }
-  const totalSec = Math.floor(diff / 1000);
-  const d = Math.floor(totalSec / 86400);
-  const h = Math.floor((totalSec % 86400) / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const pad2n = n => String(n).padStart(2, '0');
-  if(d > 0) return `${d}:${pad2n(h)}:${pad2n(m)}:${pad2n(s)}`;
-  if(h > 0) return `${h}:${pad2n(m)}:${pad2n(s)}`;
-  return `${m}:${pad2n(s)}`;
-}
-
-function tickCountdown(){
-  const body = formatCountdownParts(currentCfg);
-  if(body === 'DONE'){ showClock(); return; }
-  main.textContent = body || '0:00';
-  sub.textContent = currentCfg.countdown_label || '';
-  fitDisplay();
-}
-
-function showCountdown(){
-  stopAnim();
-  clearInterval(clockTimer);
-  tickCountdown();
-  clockTimer = setInterval(tickCountdown, 1000);
-}
-
 function playScroll(direction){
-  const family = currentCfg.font_family;
-  const rotated = (rotation === 90 || rotation === 270);
-  const visualH = rotated ? screenEl.clientWidth : screenEl.clientHeight;
-  const visualW = rotated ? screenEl.clientHeight : screenEl.clientWidth;
-  const innerH = visualH * 0.8;
-  const scale = (currentCfg.font_size || 100) / 100;
+  const family = cfg.font_family;
+  const innerH = screenEl.clientHeight * 0.8;
+  const scale = (cfg.font_size || 100) / 100;
   const fontPx = Math.max(14, (innerH / 1.15) * scale);
   content.style.fontSize = fontPx + 'px';
   content.style.whiteSpace = 'nowrap';
@@ -240,10 +205,9 @@ function playScroll(direction){
   content.style.width = 'max-content';
 
   const textWidth = widestLineWidth(main.textContent, fontPx, family);
-  const screenW = visualW;
-  const distance = textWidth + screenW;
-  const speedPxPerSec = 130;
-  const duration = Math.max(4000, (distance / speedPxPerSec) * 1000);
+  const screenW = screenEl.clientWidth;
+  const speed = SPEEDS[cfg.message_speed] || SPEEDS.normal;
+  const duration = Math.max(4000, ((textWidth + screenW) / speed) * 1000);
 
   const startX = direction === 'scroll-left' ? screenW : -textWidth;
   const endX = direction === 'scroll-left' ? -textWidth : screenW;
@@ -277,11 +241,7 @@ function playFade(){
   fitDisplay();
   content.style.position = 'relative';
   activeAnim = content.animate(
-    [
-      {opacity: 1, offset: 0},
-      {opacity: 0.12, offset: 0.5},
-      {opacity: 1, offset: 1}
-    ],
+    [{opacity: 1, offset: 0}, {opacity: 0.12, offset: 0.5}, {opacity: 1, offset: 1}],
     {duration: 3000, iterations: Infinity, easing: 'ease-in-out'}
   );
 }
@@ -291,184 +251,285 @@ function playBlink(){
   content.style.position = 'relative';
   activeAnim = content.animate(
     [
-      {opacity: 1, offset: 0},
-      {opacity: 1, offset: 0.55},
-      {opacity: 0, offset: 0.6},
-      {opacity: 0, offset: 0.95},
-      {opacity: 1, offset: 1}
+      {opacity: 1, offset: 0}, {opacity: 1, offset: 0.55},
+      {opacity: 0, offset: 0.6}, {opacity: 0, offset: 0.95}, {opacity: 1, offset: 1}
     ],
     {duration: 1200, iterations: Infinity, easing: 'steps(1, end)'}
   );
 }
 
+// Sempre cancela a animação anterior ANTES de começar outra (evita animação "fantasma")
 function dispatchAnim(anim){
-  if(anim === 'scroll-left' || anim === 'scroll-right'){
-    playScroll(anim);
-  } else if(anim === 'drop' || anim === 'rise'){
-    playVertical(anim);
-  } else if(anim === 'fade'){
-    playFade();
-  } else if(anim === 'blink'){
-    playBlink();
-  } else {
-    fitDisplay();
-  }
+  stopAnim();
+  if(anim === 'scroll-left' || anim === 'scroll-right') playScroll(anim);
+  else if(anim === 'drop' || anim === 'rise') playVertical(anim);
+  else if(anim === 'fade') playFade();
+  else if(anim === 'blink') playBlink();
+  else fitDisplay();
 }
 
+// Reajusta o que está na tela AGORA (usa a visão real, não a configuração)
 function refitCurrent(){
-  const anim = currentCfg.mode === 'message' ? currentCfg.message_anim : null;
-  dispatchAnim(anim);
+  dispatchAnim(currentView === 'message' ? cfg.message_anim : null);
 }
 
-function showMessage(text, anim){
+/* ===== RELÓGIO ===== */
+function clockText(){
+  const opts = cfg.show_seconds
+    ? {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}
+    : {hour:'2-digit', minute:'2-digit', hour12:false};
+  return new Date(nowMs()).toLocaleTimeString('pt-BR', opts);
+}
+
+function tickClock(){
+  const t = clockText();
+  if(main.textContent === t) return;
+  main.textContent = t;
+  sub.textContent = '';
+  fitDisplay();
+}
+
+function showClock(){
+  currentView = 'clock';
+  clearTimeout(revertTimer);
   clearInterval(clockTimer);
   stopAnim();
+  main.textContent = '';
+  sub.textContent = '';
+  tickClock();
+  clockTimer = setInterval(tickClock, 250);
+}
+
+/* ===== CONTAGEM REGRESSIVA ===== */
+function countdownBody(c){
+  if(!c.countdown_target) return '0:00';
+  const target = new Date(c.countdown_target).getTime();
+  if(isNaN(target)) return '0:00';
+  const diff = target - nowMs();
+  if(diff <= 0) return c.countdown_end === 'zeros' ? '0:00' : 'DONE';
+  const totalSec = Math.floor(diff / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const p = n => String(n).padStart(2, '0');
+  if(d > 0) return `${d}:${p(h)}:${p(m)}:${p(s)}`;
+  if(h > 0) return `${h}:${p(m)}:${p(s)}`;
+  return `${m}:${p(s)}`;
+}
+
+function tickCountdown(){
+  const body = countdownBody(cfg);
+  if(body === 'DONE'){ showClock(); return; }
+  const label = cfg.countdown_label || '';
+  if(main.textContent === body && sub.textContent === label) return;
+  main.textContent = body;
+  sub.textContent = label;
+  fitDisplay();
+}
+
+function showCountdown(){
+  currentView = 'countdown';
+  clearTimeout(revertTimer);
+  clearInterval(clockTimer);
+  stopAnim();
+  main.textContent = '';
+  sub.textContent = '';
+  tickCountdown();
+  if(currentView === 'countdown') clockTimer = setInterval(tickCountdown, 250);
+}
+
+/* ===== MENSAGEM ===== */
+function showMessage(text, anim){
+  currentView = 'message';
+  clearInterval(clockTimer);
   sub.textContent = '';
   main.textContent = text || '';
   dispatchAnim(anim);
 }
 
-function applyConfig(cfg){
-  currentCfg = cfg;
-  styleScreen(cfg);
-  syncOrientation(cfg);
+/* ===== APLICAR CONFIGURAÇÃO ===== */
+function applyConfig(c){
+  cfg = c;
+  styleScreen(c);
   clearTimeout(revertTimer);
-  if(cfg.mode === 'message'){
-    showMessage(cfg.message, cfg.message_anim);
-    if(!cfg.__scheduled){
-      const updatedAt = cfg.updated_at ? new Date(cfg.updated_at).getTime() : Date.now();
-      const elapsedSec = (Date.now() - updatedAt) / 1000;
-      const remaining = Math.max(0, (cfg.message_duration || 15) - elapsedSec);
-      revertTimer = setTimeout(showClock, remaining * 1000);
-    }
-  } else if(cfg.mode === 'countdown'){
+  keepScreenAwake();
+
+  if(c.mode === 'message'){
+    // O tempo da mensagem conta a partir de quando ela foi enviada (hora do servidor)
+    const started = new Date(c.message_started_at || c.updated_at || 0).getTime();
+    const elapsed = (!started || isNaN(started)) ? 0 : (nowMs() - started) / 1000;
+    const remaining = (c.message_duration || 15) - elapsed;
+    if(remaining <= 0){ showClock(); return; }
+    showMessage(c.message, c.message_anim);
+    revertTimer = setTimeout(showClock, remaining * 1000);
+  } else if(c.mode === 'countdown'){
     showCountdown();
   } else {
     showClock();
   }
 }
 
-/* ===== AGENDAMENTO POR HORÁRIO =====
-   O admin salva uma lista de horários (schedule) com o modo/mensagem de cada um.
-   Cada aparelho decide sozinho, com base na hora local dele, qual é o horário
-   ativo agora — sem precisar de nenhum servidor rodando o relógio. */
-function pad2(n){ return String(n).padStart(2, '0'); }
-function nowTimeStr(){ const d = new Date(); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
-
-function getActiveScheduleEntry(cfg){
-  if(!cfg.schedule_enabled || !Array.isArray(cfg.schedule) || cfg.schedule.length === 0) return null;
-  const sorted = cfg.schedule.slice().sort((a, b) => String(a.time).localeCompare(String(b.time)));
-  const now = nowTimeStr();
-  let active = null;
-  for(const item of sorted){ if(item.time <= now) active = item; }
-  if(!active) active = sorted[sorted.length - 1]; // antes do 1º horário do dia = ainda vale o último de ontem
-  return active;
-}
-
-function computeEffective(cfg){
-  const entry = getActiveScheduleEntry(cfg);
-  if(!entry) return cfg;
-  return Object.assign({}, cfg, {
-    mode: entry.mode,
-    message: entry.mode === 'message' ? (entry.message || '') : cfg.message,
-    __scheduled: true
-  });
-}
-
-let baseCfg = DEFAULT_CONFIG;
-let lastEffectiveKey = null;
-function refreshEffective(){
-  const effective = computeEffective(baseCfg);
-  const key = JSON.stringify(effective);
-  if(key === lastEffectiveKey) return; // nada mudou — não reinicia a animação em andamento
-  lastEffectiveKey = key;
-  applyConfig(effective);
-}
-
 function normalizeCfg(raw){
-  const merged = Object.assign({}, DEFAULT_CONFIG, raw);
-  if(!Array.isArray(merged.schedule)) merged.schedule = [];
-  if(merged.schedule_enabled == null) merged.schedule_enabled = false;
-  return merged;
+  const m = Object.assign({}, DEFAULT_CONFIG, raw);
+  const nullable = ['countdown_target', 'message_started_at', 'updated_at', 'reload_token'];
+  Object.keys(DEFAULT_CONFIG).forEach(k => {
+    if(m[k] == null && nullable.indexOf(k) < 0) m[k] = DEFAULT_CONFIG[k];
+  });
+  m.font_size = Math.max(20, Math.min(100, Number(m.font_size) || 100));
+  return m;
 }
 
-refreshEffective();
-setInterval(refreshEffective, 5000); // checa a cada 5s se cruzou algum horário do agendamento
+// Chave de comparação: ignora reload_token e updated_at (não mudam o que aparece)
+function configKey(c){
+  const copy = Object.assign({}, c);
+  delete copy.reload_token; delete copy.updated_at;
+  return JSON.stringify(copy);
+}
 
-let lastConfigKey = null;
-function configKey(cfg){ return JSON.stringify(cfg); }
+/* ===== COMANDO "RECARREGAR TELAS" ===== */
+let memReloadToken = null;
+function checkReload(token){
+  if(!token) return;
+  let seen = null;
+  try{ seen = localStorage.getItem(RELOAD_KEY); }catch(e){ seen = memReloadToken; }
+  if(seen === null){ // primeira vez: só memoriza, não recarrega
+    try{ localStorage.setItem(RELOAD_KEY, token); }catch(e){}
+    memReloadToken = token;
+    return;
+  }
+  if(seen !== token){
+    try{ localStorage.setItem(RELOAD_KEY, token); }catch(e){}
+    memReloadToken = token;
+    location.reload();
+  }
+}
 
-async function loadInitial(){
-  const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
-  if(error || !data){ screenEl.classList.add('offline'); return; }
+function ingest(raw){
+  lastRaw = Object.assign({}, lastRaw, raw);
+  lastOk = Date.now();
   screenEl.classList.remove('offline');
-  const merged = normalizeCfg(data);
+  checkReload(lastRaw.reload_token);
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify(lastRaw)); }catch(e){}
+  const merged = normalizeCfg(lastRaw);
   const key = configKey(merged);
-  if(key === lastConfigKey) return; // nada mudou no banco
+  if(key === lastConfigKey) return; // nada mudou: não reinicia a animação
   lastConfigKey = key;
   baseCfg = merged;
-  refreshEffective();
+  applyConfig(merged);
+}
+
+/* ===== BANCO: consulta de reserva + tempo real ===== */
+let rtOk = false;
+async function fetchConfig(){
+  if(!sb) return;
+  try{
+    const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).maybeSingle();
+    if(error || !data) return;
+    ingest(data);
+  }catch(e){}
+}
+
+// Tempo real avisa na hora. A consulta é só uma garantia: a cada 30 s (ou 10 s se o tempo real cair).
+function schedulePoll(){
+  setTimeout(async () => { await fetchConfig(); schedulePoll(); }, rtOk ? 30000 : 10000);
 }
 
 function subscribeRealtime(){
   sb.channel('letreiro-display')
-    .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, (payload)=>{
-      if(!payload.new) return;
-      const merged = normalizeCfg(payload.new);
-      const key = configKey(merged);
-      if(key === lastConfigKey) return;
-      lastConfigKey = key;
-      baseCfg = merged;
-      refreshEffective();
+    .on('postgres_changes', {event:'*', schema:'public', table:TABLE, filter:`id=eq.${ROW_ID}`}, payload => {
+      if(payload.new) ingest(payload.new);
     })
-    .subscribe((status)=>{
-      if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') screenEl.classList.add('offline');
-      if(status === 'SUBSCRIBED') screenEl.classList.remove('offline');
+    .subscribe(status => {
+      rtOk = (status === 'SUBSCRIBED');
+      if(rtOk) fetchConfig(); // ao (re)conectar, confere se perdeu alguma mudança
     });
+
+  // Avisa o painel que esta tela está conectada
+  try{
+    const myId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now();
+    const pres = sb.channel('letreiro-telas', {config:{presence:{key: myId}}});
+    pres.subscribe(async status => {
+      if(status === 'SUBSCRIBED'){ try{ await pres.track({since: Date.now()}); }catch(e){} }
+    });
+  }catch(e){}
 }
 
-loadInitial();
-subscribeRealtime();
-// checagem de respaldo a cada 1s — garante que não passe de 1s de atraso mesmo se o realtime falhar
-setInterval(loadInitial, 1000);
-
-/* ===== TELA SEM DESLIGAR (Wake Lock, como players de vídeo) ===== */
+/* ===== TELA SEM DESLIGAR (Wake Lock) ===== */
 let wakeLock = null;
-
+function releaseWake(){
+  if(wakeLock){ wakeLock.release().catch(() => {}); wakeLock = null; }
+}
 async function keepScreenAwake(){
-  if (!('wakeLock' in navigator)) return;
-  if (document.visibilityState !== 'visible') return;
-  try {
-    if (!wakeLock || wakeLock.released) {
+  if(!('wakeLock' in navigator)) return;
+  if(cfg.keep_awake === false){ releaseWake(); return; }
+  if(document.visibilityState !== 'visible') return;
+  try{
+    if(!wakeLock || wakeLock.released){
       wakeLock = await navigator.wakeLock.request('screen');
       wakeLock.addEventListener('release', () => { wakeLock = null; });
     }
-  } catch(e) {
-    // Se o navegador não permitir Wake Lock, o letreiro continua funcionando.
-  }
+  }catch(e){}
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
+  if(document.visibilityState === 'visible'){
     keepScreenAwake();
     requestLandscape();
     applyRotation();
+    fetchConfig();
   }
 });
-
-window.addEventListener('resize', applyRotation);
-window.addEventListener('orientationchange', () => {
-  setTimeout(() => {
-    applyRotation();
-    requestLandscape();
-  }, 100);
-});
-
-// Tentativa automática + tentativa após qualquer toque (alguns celulares exigem interação).
-keepScreenAwake();
-requestLandscape();
+window.addEventListener('resize', () => applyRotation());
+window.addEventListener('orientationchange', () => setTimeout(() => { applyRotation(); requestLandscape(); }, 100));
+window.addEventListener('online', () => { syncTime(); fetchConfig(); });
 document.addEventListener('pointerdown', keepScreenAwake, {passive:true});
-applyRotation();
+
+/* ===== INÍCIO ===== */
+(function start(){
+  applyRotation(true);
+  requestLandscape();
+  keepScreenAwake();
+
+  // Começa na hora com a última configuração conhecida (funciona até sem internet)
+  let started = false;
+  try{
+    const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if(cached){
+      lastRaw = cached;
+      const m = normalizeCfg(cached);
+      lastConfigKey = configKey(m);
+      baseCfg = m;
+      applyConfig(m);
+      started = true;
+    }
+  }catch(e){}
+  if(!started) applyConfig(DEFAULT_CONFIG);
+
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => refitCurrent());
+
+  if(sb){
+    syncTime().then(fetchConfig);
+    subscribeRealtime();
+    schedulePoll();
+    setInterval(syncTime, 10 * 60 * 1000);
+  } else {
+    // sem biblioteca (sem internet na abertura): tenta de novo quando a internet voltar
+    setInterval(() => { if(navigator.onLine) location.reload(); }, 60000);
+  }
+
+  // Manutenção a cada 5 s: sinal de "sem conexão" só depois de 2 min sem resposta
+  let beat = 0;
+  setInterval(() => {
+    beat++;
+    screenEl.classList.toggle('offline', sb && (Date.now() - lastOk > 120000));
+    if(beat % 12 === 0) keepScreenAwake(); // a cada 1 min reforça a tela ligada
+  }, 5000);
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  }
+})();
 </script>
 </body>
 </html>
