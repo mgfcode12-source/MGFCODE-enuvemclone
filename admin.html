@@ -882,6 +882,7 @@ const ROW_ID = 'main';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DB_CHANNEL = 'letreiro-db-v2';
 let dbChannel = null;
+let dbRetryTimer = null;
 
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'BEM-VINDO!', bgColor: '#050505', fontColor: '#ffb000',
@@ -1354,13 +1355,21 @@ async function loadInitial(){
   }
 }
 
+function scheduleDbRetry(){
+  if(dbRetryTimer || !navigator.onLine) return;
+  dbRetryTimer = setTimeout(async () => {
+    dbRetryTimer = null;
+    await restartDbRealtime();
+  }, 2500);
+}
+
 function subscribeRealtime(){
   try{
-    /*
-      Um único canal Postgres Changes.
-      O admin não manda Broadcast.
-      O admin não depende de Presence.
-    */
+    if(dbChannel){
+      sb.removeChannel(dbChannel).catch(() => {});
+      dbChannel = null;
+    }
+
     dbChannel = sb
       .channel(DB_CHANNEL)
       .on(
@@ -1372,13 +1381,10 @@ function subscribeRealtime(){
           filter:`id=eq.${ROW_ID}`
         },
         payload => {
-          console.log('[LETREIRO] Realtime:', payload.eventType, payload.new);
-
+          console.log('[LETREIRO] Realtime admin:', payload.eventType, payload.new);
           if(!payload.new) return;
 
           savedState = fromRow(payload.new);
-          // Se o usuário estiver editando, não sobrescrevemos o rascunho.
-          // A configuração só muda no banco quando ele clicar em Aplicar.
           if(!dirty){
             Object.assign(state, savedState);
             lastSavedMode = state.mode;
@@ -1389,12 +1395,41 @@ function subscribeRealtime(){
       )
       .subscribe(status => {
         console.log('[LETREIRO] Realtime admin:', status);
+        if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED'){
+          scheduleDbRetry();
+        }
       });
-
   }catch(error){
     console.error('[LETREIRO] erro no Realtime:', error);
+    scheduleDbRetry();
   }
 }
+
+async function restartDbRealtime(){
+  try{
+    if(dbChannel){
+      await sb.removeChannel(dbChannel);
+      dbChannel = null;
+    }
+  }catch(e){}
+  subscribeRealtime();
+
+  // Nunca destrói um rascunho que ainda não foi aplicado.
+  // Se o admin estiver editando, atualizamos apenas savedState.
+  if(dirty){
+    try{
+      const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
+      if(!error && data) savedState = fromRow(data);
+    }catch(e){}
+  }else{
+    await loadInitial();
+  }
+}
+
+window.addEventListener('online', () => restartDbRealtime());
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') restartDbRealtime();
+});
 
 async function startSupabase(){
   await loadInitial();
