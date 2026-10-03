@@ -36,7 +36,6 @@
     line-height:1.15; word-wrap:break-word; white-space:pre-wrap;
   }
   #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
-  #screen.offline #screenContent{opacity:.35;}
 </style>
 </head>
 <body>
@@ -397,8 +396,6 @@ function checkReload(token){
   }
   if(seen !== token){
     try{ localStorage.setItem(RELOAD_KEY, token); }catch(e){}
-    memReloadToken = token;
-    location.reload();
   }
 }
 
@@ -450,6 +447,7 @@ function ingest(raw){
 
 let rtOk = false;
 let dbChannel = null;
+let rtRetryTimer = null;
 
 async function fetchConfig(){
   if(!sb) return false;
@@ -472,16 +470,23 @@ async function fetchConfig(){
   }
 }
 
+function scheduleRealtimeRetry(){
+  if(rtRetryTimer || !navigator.onLine) return;
+  rtRetryTimer = setTimeout(async () => {
+    rtRetryTimer = null;
+    await restartRealtime();
+  }, 2500);
+}
+
 function subscribeRealtime(){
   if(!sb) return;
 
   try{
-    /*
-      ÚNICA assinatura de configuração.
+    if(dbChannel){
+      sb.removeChannel(dbChannel).catch(() => {});
+      dbChannel = null;
+    }
 
-      O evento UPDATE feito pelo admin chega diretamente aqui.
-      Não existe Broadcast intermediário.
-    */
     dbChannel = sb
       .channel('letreiro-display-v2')
       .on(
@@ -494,31 +499,56 @@ function subscribeRealtime(){
         },
         payload => {
           console.log('[LETREIRO] Realtime recebido:', payload.eventType, payload.new);
-
-          if(payload.new){
-            ingest(payload.new);
-          }
+          lastOk = Date.now();
+          rtOk = true;
+          if(payload.new) ingest(payload.new);
         }
       )
       .subscribe(async status => {
         console.log('[LETREIRO] Realtime:', status);
-
         rtOk = status === 'SUBSCRIBED';
 
-        /*
-          Assim que a assinatura fica pronta, fazemos UMA leitura.
-          Isso cobre uma alteração que tenha ocorrido antes da conexão.
-        */
-        if(rtOk){
+        if(status === 'SUBSCRIBED'){
+          lastOk = Date.now();
           await fetchConfig();
+        } else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED'){
+          scheduleRealtimeRetry();
         }
       });
-
   }catch(error){
     rtOk = false;
     console.error('[LETREIRO] erro ao conectar Realtime:', error);
+    scheduleRealtimeRetry();
   }
 }
+
+async function restartRealtime(){
+  try{
+    if(dbChannel){
+      await sb.removeChannel(dbChannel);
+      dbChannel = null;
+    }
+  }catch(e){}
+
+  rtOk = false;
+  subscribeRealtime();
+  await fetchConfig();
+}
+
+window.addEventListener('online', async () => {
+  await syncTime();
+  await restartRealtime();
+});
+
+document.addEventListener('visibilitychange', async () => {
+  if(document.visibilityState === 'visible'){
+    keepScreenAwake();
+    requestLandscape();
+    applyRotation();
+    if(!rtOk) await restartRealtime();
+    else await fetchConfig();
+  }
+});
 
 /*
   Presença é somente para o contador de aparelhos no admin.
@@ -550,44 +580,6 @@ function subscribePresence(){
   }
 }
 
-/*
-  Reconecta o canal se o navegador voltar do modo offline.
-*/
-async function restartRealtime(){
-  try{
-    if(dbChannel){
-      await sb.removeChannel(dbChannel);
-      dbChannel = null;
-    }
-  }catch(e){}
-
-  rtOk = false;
-  subscribeRealtime();
-  await fetchConfig();
-}
-
-window.addEventListener('online', async () => {
-  await syncTime();
-  await restartRealtime();
-});
-
-/*
-  Se a aba ficar visível novamente, garante que o canal e o estado
-  continuam vivos.
-*/
-document.addEventListener('visibilitychange', async () => {
-  if(document.visibilityState === 'visible'){
-    keepScreenAwake();
-    requestLandscape();
-    applyRotation();
-
-    if(!rtOk){
-      await restartRealtime();
-    }else{
-      await fetchConfig();
-    }
-  }
-});
 /* ===== TELA SEM DESLIGAR (Wake Lock) ===== */
 let wakeLock = null;
 function releaseWake(){
@@ -644,16 +636,23 @@ document.addEventListener('pointerdown', keepScreenAwake, {passive:true});
     setInterval(() => { if(navigator.onLine) location.reload(); }, 60000);
   }
 
-  // Manutenção a cada 5 s: sinal de "sem conexão" só depois de 2 min sem resposta
+  // Manutenção leve: nunca escurece o letreiro por falta de tráfego.
+  // Realtime faz a sincronização; este intervalo serve apenas para reforçar o Wake Lock.
   let beat = 0;
   setInterval(() => {
     beat++;
-    screenEl.classList.toggle('offline', sb && (Date.now() - lastOk > 120000));
-    if(beat % 12 === 0) keepScreenAwake(); // a cada 1 min reforça a tela ligada
+    if(beat % 12 === 0) keepScreenAwake();
   }, 5000);
 
+  // Não deixa um Service Worker antigo servir uma versão velha do letreiro.
+  // A comunicação em tempo real é feita diretamente pelo Supabase Realtime.
   if('serviceWorker' in navigator){
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    window.addEventListener('load', async () => {
+      try{
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }catch(e){}
+    });
   }
 })();
 </script>
