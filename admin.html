@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Admin — Letreiro LED</title>
+<title>Admin Letreiro LED</title>
+<!-- REALTIME-FIX v2 -->
 <meta name="theme-color" content="#0b0d10">
 <link rel="icon" href="./icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -436,7 +437,14 @@ const ROW_ID = 'main';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let commandChannel = null;
 let commandReady = false;
-let commandSubscribePromise = null;
+
+// Canal local: atualiza imediatamente outras abas/janelas do mesmo navegador.
+let localCommandChannel = null;
+try{
+  if('BroadcastChannel' in window){
+    localCommandChannel = new BroadcastChannel('letreiro-local-command');
+  }
+}catch(e){ localCommandChannel = null; }
 
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'BEM-VINDO!', bgColor: '#050505', fontColor: '#ffb000',
@@ -661,8 +669,14 @@ let lastSavedMode = null;
 let lastSavedMessage = null;
 
 async function commit(){
-  if(adminLocked || !presenceReady){
-    if(!presenceReady) el('status').textContent = 'Conectando o painel…';
+  // A presença serve apenas para contador/bloqueio de outro admin.
+  // SALVAR/APLICAR nunca pode depender dela.
+  if(adminLocked){
+    el('status').textContent = 'Painel bloqueado: outro administrador está conectado.';
+    return;
+  }
+  if(!sb){
+    el('status').textContent = 'Sem conexão com o servidor.';
     return;
   }
 
@@ -712,27 +726,29 @@ async function commit(){
 
     const commandState = canonical || row;
 
-    // Caminho imediato: o index recebe o comando assim que o admin salva.
-    // Se este canal falhar, Postgres Realtime + polling continuam como redundância.
+    // 1) MESMO NAVEGADOR: entrega instantânea, sem depender do Supabase Realtime.
     try{
-      if(commandSubscribePromise){
-        const ready = await commandSubscribePromise;
-        if(ready && commandChannel){
-          const result = await commandChannel.send({
-            type:'broadcast',
-            event:'state',
-            payload: commandState
-          });
-          if(result !== 'ok'){
-            console.warn('Broadcast do letreiro não confirmado:', result);
-          }
-        }
+      localStorage.setItem('letreiroCfgCache', JSON.stringify(commandState));
+    }catch(e){}
+    try{
+      if(localCommandChannel){
+        localCommandChannel.postMessage(commandState);
       }
-    }catch(e){
-      console.warn('Falha no Broadcast. Realtime do banco/polling será o fallback.', e);
-    }
+    }catch(e){}
 
-    el('status').textContent = 'Aplicado ' + new Date().toLocaleTimeString('pt-BR');
+    // 2) OUTROS APARELHOS: Supabase Broadcast imediato.
+    // 3) O index também faz polling curto como rede de segurança.
+    try{
+      if(commandChannel){
+        await commandChannel.send({
+          type:'broadcast',
+          event:'state',
+          payload: commandState
+        });
+      }
+    }catch(e){}
+
+    el('status').textContent = 'Aplicado agora — ' + new Date().toLocaleTimeString('pt-BR');
   }
 
   setTimeout(()=>{ suppressRemote = false; }, 800);
@@ -841,22 +857,18 @@ async function loadInitial(){
   if(data){ Object.assign(state, fromRow(data)); lastSavedMode = state.mode; lastSavedMessage = state.message; renderForm(); }
 }
 function subscribeRealtime(){
+  // Canal exclusivo de comando: ADMIN -> INDEX.
+  // O index não publica configuração neste canal.
   try{
-    commandChannel = sb.channel('letreiro-command', {
-      config:{ broadcast:{ self:false } }
-    });
-
-    commandSubscribePromise = new Promise(resolve => {
-      commandChannel.subscribe(status => {
-        commandReady = (status === 'SUBSCRIBED');
-        if(commandReady) resolve(true);
-      });
+    commandChannel = sb.channel('letreiro-command');
+    commandChannel.subscribe(status => {
+      commandReady = (status === 'SUBSCRIBED');
     });
   }catch(e){
     commandReady = false;
-    commandSubscribePromise = Promise.resolve(false);
   }
 
+  // Espelho do estado persistido: se outro evento alterar o banco, o admin acompanha.
   sb.channel('letreiro-admin-db')
     .on('postgres_changes', {
       event:'*',
