@@ -443,9 +443,19 @@ function subscribeRealtime(){
     commandChannel = sb.channel('letreiro-command');
     commandChannel
       .on('broadcast', {event:'state'}, payload => {
-        if(payload && payload.payload) ingest(payload.payload);
+        try{
+          const incoming = payload && payload.payload;
+          if(!incoming || typeof incoming !== 'object') return;
+          ingest(incoming);
+        }catch(error){
+          console.warn('Comando do Admin inválido:', error);
+        }
       })
-      .subscribe();
+      .subscribe(status => {
+        if(status === 'SUBSCRIBED'){
+          fetchConfig();
+        }
+      });
   }catch(e){}
 
   // FONTE DE VERDADE PERSISTIDA: recupera qualquer mudança perdida.
