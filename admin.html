@@ -436,6 +436,7 @@ const ROW_ID = 'main';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let commandChannel = null;
 let commandReady = false;
+let commandSubscribePromise = null;
 
 const DEFAULT_CONFIG = {
   mode: 'clock', message: 'BEM-VINDO!', bgColor: '#050505', fontColor: '#ffb000',
@@ -714,14 +715,22 @@ async function commit(){
     // Caminho imediato: o index recebe o comando assim que o admin salva.
     // Se este canal falhar, Postgres Realtime + polling continuam como redundância.
     try{
-      if(commandReady && commandChannel){
-        await commandChannel.send({
-          type:'broadcast',
-          event:'state',
-          payload: commandState
-        });
+      if(commandSubscribePromise){
+        const ready = await commandSubscribePromise;
+        if(ready && commandChannel){
+          const result = await commandChannel.send({
+            type:'broadcast',
+            event:'state',
+            payload: commandState
+          });
+          if(result !== 'ok'){
+            console.warn('Broadcast do letreiro não confirmado:', result);
+          }
+        }
       }
-    }catch(e){}
+    }catch(e){
+      console.warn('Falha no Broadcast. Realtime do banco/polling será o fallback.', e);
+    }
 
     el('status').textContent = 'Aplicado ' + new Date().toLocaleTimeString('pt-BR');
   }
@@ -832,18 +841,22 @@ async function loadInitial(){
   if(data){ Object.assign(state, fromRow(data)); lastSavedMode = state.mode; lastSavedMessage = state.message; renderForm(); }
 }
 function subscribeRealtime(){
-  // Canal exclusivo de comando: ADMIN -> INDEX.
-  // O index não publica configuração neste canal.
   try{
-    commandChannel = sb.channel('letreiro-command');
-    commandChannel.subscribe(status => {
-      commandReady = (status === 'SUBSCRIBED');
+    commandChannel = sb.channel('letreiro-command', {
+      config:{ broadcast:{ self:false } }
+    });
+
+    commandSubscribePromise = new Promise(resolve => {
+      commandChannel.subscribe(status => {
+        commandReady = (status === 'SUBSCRIBED');
+        if(commandReady) resolve(true);
+      });
     });
   }catch(e){
     commandReady = false;
+    commandSubscribePromise = Promise.resolve(false);
   }
 
-  // Espelho do estado persistido: se outro evento alterar o banco, o admin acompanha.
   sb.channel('letreiro-admin-db')
     .on('postgres_changes', {
       event:'*',
