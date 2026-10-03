@@ -121,17 +121,6 @@
   .addPresetRow button, .addSchedRow button{padding:10px 16px; border:none; border-radius:11px;
     background:var(--accent); color:var(--accent-ink); font-weight:700; font-family:inherit; cursor:pointer; white-space:nowrap;}
 
-  .schedItem{display:flex; align-items:center; gap:10px; background:var(--bg-elev); border:1px solid var(--card-border);
-    border-radius:11px; padding:10px 12px; margin-bottom:8px;}
-  .schedItem .time{font-weight:800; min-width:52px; color:var(--accent);}
-  .schedItem .desc{flex:1; font-size:13px; color:var(--text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .schedItem .del{background:none; border:none; color:var(--text-dim); font-size:17px; cursor:pointer; font-weight:800; padding:0 4px;}
-  .schedItem .del:hover{color:var(--danger);}
-  .addSchedRow{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
-  .addSchedRow input[type=time]{flex:0 0 112px;}
-  .addSchedRow select{flex:0 0 132px; padding:9px 12px;}
-  .addSchedRow input[type=text]{flex:1; min-width:160px;}
-
   .cdSimple{display:flex; gap:10px;}
   .cdUnit{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;
     background:var(--bg-elev); border:1px solid var(--card-border); border-radius:11px; padding:10px 6px;}
@@ -169,12 +158,17 @@
   #qrImg{width:132px; height:132px; border-radius:10px; border:1px solid var(--card-border); background:#fff; padding:6px;}
 
   .badge{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; padding:4px 9px;
-    border-radius:999px; background:rgba(10,92,255,.08); color:var(--accent); border:1px solid rgba(10,92,255,.18);}
+    border-radius:999px; background:rgba(242,183,5,.10); color:var(--accent); border:1px solid rgba(242,183,5,.25);}
   .liveDot{width:6px; height:6px; border-radius:50%; background:var(--accent);
     animation:pulse 1.6s infinite;}
   @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
 
   .tabPanel{display:none;} .tabPanel.on{display:block;}
+  #singleAdminError{position:fixed;inset:0;z-index:99999;background:rgba(120,0,0,.97);display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;color:#fff;}
+  #singleAdminError>div{max-width:760px;border:4px solid #fff;padding:40px 32px;border-radius:18px;box-shadow:0 0 60px rgba(0,0,0,.45);}
+  #singleAdminError strong{display:block;font-size:clamp(30px,5vw,64px);line-height:1.05;font-weight:900;}
+  #singleAdminError span{display:block;margin-top:20px;font-size:clamp(15px,2vw,22px);line-height:1.45;}
+  body.adminLocked #app{filter:blur(2px);pointer-events:none;user-select:none;}
 
   @media (max-width:980px){
     #sidebar{display:none;}
@@ -269,8 +263,9 @@
               <button type="button" id="cdStartBtn" style="width:100%; margin-top:14px; padding:16px; border:none; border-radius:11px; background:var(--accent); color:var(--accent-ink); font-weight:700; font-size:16px; font-family:inherit; cursor:pointer;">Começar a contar</button>
               <div class="hint" id="cdStatusHint"></div>
             </div>
-            <div class="row" id="cdLabelRow" style="display:none">
-              <input type="hidden" id="countdownLabel" value="">
+            <div class="row" id="cdLabelRow">
+              <label>Rótulo (opcional)</label>
+              <input type="text" id="countdownLabel" maxlength="80" placeholder="Ex.: Culto começa em">
             </div>
             <div class="row" id="cdEndRow">
               <label>Quando chegar a zero</label>
@@ -310,23 +305,6 @@
                 <button data-v="0">Sem segundos</button>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- ===== MENSAGENS RÁPIDAS ===== -->
-        <div class="tabPanel" data-panel="mensagens">
-          <div class="card">
-            <h3>Mensagens rápidas</h3>
-            <div class="catTabs" id="presetCats"></div>
-            <div class="row">
-              <div class="chipRow" id="presetChips"></div>
-            </div>
-            <div class="row addPresetRow">
-              <input type="text" id="newPresetText" placeholder="Nova mensagem…" maxlength="200">
-              <select id="newPresetCat"></select>
-              <button id="addPresetBtn">Salvar</button>
-            </div>
-            <div class="hint">Toque numa mensagem pra aplicar na hora nas telas. Toque no × pra remover (salvo neste navegador).</div>
           </div>
         </div>
 
@@ -393,31 +371,6 @@
           </div>
         </div>
 
-        <!-- ===== AGENDAMENTO ===== -->
-        <div class="tabPanel" data-panel="agenda">
-          <div class="card">
-            <h3>Agendamento por horário</h3>
-            <div class="row">
-              <label>Ativar agendamento</label>
-              <div class="seg" id="schedEnabledSeg" style="max-width:220px;">
-                <button data-v="0">Desligado</button>
-                <button data-v="1">Ligado</button>
-              </div>
-            </div>
-            <div class="row" id="schedRows"></div>
-            <div class="row addSchedRow">
-              <input type="time" id="newSchedTime" value="08:00">
-              <select id="newSchedMode">
-                <option value="clock">Relógio</option>
-                <option value="message">Mensagem</option>
-              </select>
-              <input type="text" id="newSchedMsg" placeholder="Mensagem para esse horário…" maxlength="200">
-              <button id="addSchedBtn">+ Adicionar</button>
-            </div>
-            <div class="hint">A tela troca sozinha no horário definido e mantém até o próximo horário da lista — ideal pra início/fim de culto.</div>
-          </div>
-        </div>
-
         <!-- ===== DISPOSITIVO ===== -->
         <div class="tabPanel" data-panel="dispositivo">
           <div class="card">
@@ -427,6 +380,16 @@
             <div class="row qrWrap" style="margin-top:16px;">
               <label>QR code (pra configurar um celular novo)</label>
               <img id="qrImg" alt="QR code do link do letreiro">
+            </div>
+          </div>
+          <div class="card" style="margin-top:18px;">
+            <h3>Celulares conectados</h3>
+            <div style="display:flex;align-items:center;gap:14px;">
+              <div id="deviceCount" style="font-size:42px;font-weight:800;line-height:1;">0</div>
+              <div>
+                <div id="deviceCountLabel" style="font-weight:700;">Nenhum aparelho conectado</div>
+                <div class="hint" style="margin-top:3px;">Atualização em tempo real. Não consulta o banco para contar aparelhos.</div>
+              </div>
             </div>
           </div>
         </div>
@@ -478,23 +441,20 @@ const DEFAULT_CONFIG = {
   orientation: 'landscape', messageAnim: 'scroll-left', messageSpeed: 'normal', glow: false, keepAwake: true,
   countdownTarget: '', countdownLabel: '', countdownEnd: 'clock',
   countdownKind: 'time', countdownTimeOfDay: '19:00',
-  countdownDays: 0, countdownHours: 0, countdownMinutes: 10,
-  scheduleEnabled: false, schedule: []
+  countdownDays: 0, countdownHours: 0, countdownMinutes: 10
 };
 
 const el = id => document.getElementById(id);
-const state = Object.assign({}, DEFAULT_CONFIG, {schedule: []});
+const state = Object.assign({}, DEFAULT_CONFIG);
 let saveTimer = null;
 let suppressRemote = false;
 
 /* ===== Navegação (sidebar / abas) ===== */
 const SECTIONS = [
-  {id:'conteudo',    label:'Conteúdo',        tag:'O que aparece agora nas telas'},
-  {id:'mensagens',   label:'Mensagens rápidas', tag:'Frases prontas por categoria'},
-  {id:'tela',        label:'Tela',            tag:'Orientação e tela sempre ligada'},
-  {id:'aparencia',   label:'Aparência',       tag:'Cores, brilho e tipografia'},
-  {id:'agenda',      label:'Agendamento',     tag:'Troca automática por horário'},
-  {id:'dispositivo', label:'Dispositivo',     tag:'Link e QR code das telas'}
+  {id:'conteudo',    label:'Conteúdo',    tag:'O que aparece agora nas telas'},
+  {id:'tela',        label:'Tela',        tag:'Orientação e tela sempre ligada'},
+  {id:'aparencia',   label:'Aparência',   tag:'Cores, brilho e tipografia'},
+  {id:'dispositivo', label:'Dispositivos',tag:'Conectar celulares e acompanhar telas'}
 ];
 function buildNav(container, isMobile){
   container.innerHTML = '';
@@ -546,7 +506,7 @@ function fitPreviewText(){
 }
 
 
-const displayLinkURL = location.origin + location.pathname.replace(/admin\.html$/, 'index.html');
+const displayLinkURL = location.origin + location.pathname.replace(/admin(?:\.html)?$/, 'index.html');
 el('displayLink').textContent = displayLinkURL;
 el('qrImg').src = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=4&data=' + encodeURIComponent(displayLinkURL);
 
@@ -668,150 +628,13 @@ function renderPalettes(){
 }
 renderPalettes();
 
-/* ===== Mensagens rápidas — agora com categorias ===== */
-const PRESET_KEY = 'letreiroPresetsV2';
-const DEFAULT_PRESETS = [
-  {text:'Bem-vindo!', cat:'Saudações'},
-  {text:'Sejam bem-vindos à casa de Deus', cat:'Saudações'},
-  {text:'Culto às 19h', cat:'Cultos'},
-  {text:'Escola Bíblica agora', cat:'Cultos'},
-  {text:'Estamos ao vivo', cat:'Cultos'},
-  {text:'Ore, o Senhor está no controle', cat:'Avisos'},
-  {text:'Reunião de oração hoje às 19h30', cat:'Avisos'},
-  {text:'Voltamos já', cat:'Avisos'},
-  {text:'Feliz aniversário!', cat:'Saudações'}
-];
-const CATEGORIES = ['Todas', 'Cultos', 'Avisos', 'Saudações', 'Outras'];
-function loadPresets(){
-  try{
-    const raw = localStorage.getItem(PRESET_KEY);
-    if(raw) return JSON.parse(raw);
-    const oldRaw = localStorage.getItem('letreiroPresets');
-    if(oldRaw){ return JSON.parse(oldRaw).map(t=> ({text:t, cat:'Outras'})); }
-  }catch(e){}
-  return DEFAULT_PRESETS.slice();
-}
-function savePresetsToStorage(){ localStorage.setItem(PRESET_KEY, JSON.stringify(presets)); }
-let presets = loadPresets();
-let activeCat = 'Todas';
-
-function renderPresetCats(){
-  const wrap = el('presetCats');
-  wrap.innerHTML = '';
-  CATEGORIES.forEach(cat=>{
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'catTab' + (cat === activeCat ? ' on' : '');
-    b.textContent = cat;
-    b.addEventListener('click', ()=>{ activeCat = cat; renderPresetCats(); renderPresets(); });
-    wrap.appendChild(b);
-  });
-  const sel = el('newPresetCat');
-  sel.innerHTML = '';
-  CATEGORIES.filter(c=> c !== 'Todas').forEach(cat=>{
-    const opt = document.createElement('option'); opt.value = cat; opt.textContent = cat;
-    sel.appendChild(opt);
-  });
-}
-function renderPresets(){
-  const wrap = el('presetChips');
-  wrap.innerHTML = '';
-  const list = presets.filter((p,i)=> activeCat === 'Todas' || p.cat === activeCat).map(p=> ({...p, i: presets.indexOf(p)}));
-  if(list.length === 0){ wrap.innerHTML = '<div class="hint">Nenhuma mensagem nessa categoria ainda.</div>'; return; }
-  list.forEach(p=>{
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'chip';
-    const label = document.createElement('span');
-    label.textContent = p.text.length > 34 ? p.text.slice(0, 34) + '…' : p.text;
-    const x = document.createElement('span');
-    x.className = 'x';
-    x.textContent = '×';
-    chip.appendChild(label);
-    chip.appendChild(x);
-    chip.addEventListener('click', (e)=>{
-      if(e.target === x){
-        presets.splice(p.i, 1);
-        savePresetsToStorage();
-        renderPresets();
-        return;
-      }
-      state.mode = 'message';
-      state.message = p.text;
-      renderForm();
-      commit();
-    });
-    wrap.appendChild(chip);
-  });
-}
-renderPresetCats();
-renderPresets();
-el('addPresetBtn').addEventListener('click', ()=>{
-  const val = el('newPresetText').value.trim();
-  if(!val) return;
-  presets.push({text: val, cat: el('newPresetCat').value || 'Outras'});
-  savePresetsToStorage();
-  el('newPresetText').value = '';
-  renderPresets();
-});
-
-/* ===== Agendamento por horário ===== */
-function renderSchedule(){
-  setSeg(el('schedEnabledSeg'), state.scheduleEnabled ? '1' : '0');
-  const wrap = el('schedRows');
-  wrap.innerHTML = '';
-  const sorted = state.schedule.slice().sort((a, b)=> a.time.localeCompare(b.time));
-  if(sorted.length === 0){
-    wrap.innerHTML = '<div class="hint">Nenhum horário programado ainda.</div>';
-    return;
-  }
-  sorted.forEach(item=>{
-    const realIndex = state.schedule.indexOf(item);
-    const row = document.createElement('div');
-    row.className = 'schedItem';
-    const timeSpan = document.createElement('span');
-    timeSpan.className = 'time'; timeSpan.textContent = item.time;
-    const descSpan = document.createElement('span');
-    descSpan.className = 'desc';
-    descSpan.textContent = item.mode === 'message' ? ('Mensagem: ' + (item.message || '')) : 'Volta ao relógio';
-    const del = document.createElement('button');
-    del.className = 'del'; del.textContent = '×';
-    del.addEventListener('click', ()=>{
-      state.schedule.splice(realIndex, 1);
-      renderSchedule();
-      commit();
-    });
-    row.appendChild(timeSpan); row.appendChild(descSpan); row.appendChild(del);
-    wrap.appendChild(row);
-  });
-}
-el('schedEnabledSeg').addEventListener('click', e=>{
-  const b = e.target.closest('button'); if(!b) return;
-  state.scheduleEnabled = b.dataset.v === '1';
-  renderSchedule(); commit();
-});
-el('newSchedMode').addEventListener('change', ()=>{
-  el('newSchedMsg').style.display = el('newSchedMode').value === 'message' ? '' : 'none';
-});
-el('newSchedMode').dispatchEvent(new Event('change'));
-el('addSchedBtn').addEventListener('click', ()=>{
-  const time = el('newSchedTime').value || '08:00';
-  const mode = el('newSchedMode').value;
-  const message = el('newSchedMsg').value.trim();
-  if(mode === 'message' && !message){ el('newSchedMsg').focus(); return; }
-  state.schedule.push({time, mode, message});
-  el('newSchedMsg').value = '';
-  renderSchedule();
-  commit();
-});
-
 function toRow(s){
   return {
     id: ROW_ID, mode: s.mode, message: s.message, bg_color: s.bgColor, font_color: s.fontColor,
     font_family: s.fontFamily, font_size: s.fontSize, message_duration: s.messageDuration,
-    show_seconds: s.showSeconds, orientation: s.orientation, message_anim: s.messageAnim,
-    message_speed: s.messageSpeed, keep_awake: s.keepAwake,
-    glow: s.glow, schedule_enabled: s.scheduleEnabled, schedule: s.schedule,
-    countdown_target: s.countdownTarget, countdown_label: s.countdownLabel, countdown_end: s.countdownEnd,
+    show_seconds: s.showSeconds, orientation: 'landscape', message_anim: s.messageAnim,
+    message_speed: s.messageSpeed, keep_awake: s.keepAwake, glow: s.glow,
+    countdown_target: s.countdownTarget, countdown_label: s.countdownLabel || '', countdown_end: s.countdownEnd,
     countdown_kind: s.countdownKind, countdown_time_of_day: s.countdownTimeOfDay,
     countdown_days: s.countdownDays, countdown_hours: s.countdownHours, countdown_minutes: s.countdownMinutes,
     updated_at: new Date().toISOString()
@@ -819,26 +642,32 @@ function toRow(s){
 }
 function fromRow(r){
   return {
-    mode: r.mode, message: r.message, bgColor: r.bg_color, fontColor: r.font_color,
-    fontFamily: r.font_family, fontSize: Math.min(r.font_size || 100, 100), messageDuration: r.message_duration,
-    showSeconds: r.show_seconds, orientation: 'landscape',
+    mode: r.mode || 'clock', message: r.message || '', bgColor: r.bg_color || '#050505', fontColor: r.font_color || '#ffb000',
+    fontFamily: r.font_family || "'VT323', monospace", fontSize: Math.min(Number(r.font_size) || 100, 100),
+    messageDuration: Number(r.message_duration) || 15, showSeconds: r.show_seconds !== false, orientation:'landscape',
     messageAnim: r.message_anim || 'none', messageSpeed: r.message_speed || 'normal',
     keepAwake: r.keep_awake !== false, glow: !!r.glow,
-    scheduleEnabled: !!r.schedule_enabled, schedule: Array.isArray(r.schedule) ? r.schedule : [],
-    countdownTarget: r.countdown_target || '', countdownLabel: '', countdownEnd: r.countdown_end || 'clock',
+    countdownTarget: r.countdown_target || '', countdownLabel: r.countdown_label || '', countdownEnd: r.countdown_end || 'clock',
     countdownKind: r.countdown_kind || 'time', countdownTimeOfDay: r.countdown_time_of_day || '19:00',
-    countdownDays: r.countdown_days || 0, countdownHours: r.countdown_hours || 0, countdownMinutes: r.countdown_minutes != null ? r.countdown_minutes : 10
+    countdownDays: Number(r.countdown_days) || 0, countdownHours: Number(r.countdown_hours) || 0,
+    countdownMinutes: r.countdown_minutes != null ? Number(r.countdown_minutes) : 10
   };
 }
 
+let lastSavedMode = null;
+let lastSavedMessage = null;
+
 async function commit(){
+  if(adminLocked || !presenceReady) { if(!presenceReady) el('status').textContent = 'Conectando o painel…'; return; }
   suppressRemote = true;
   const row = toRow(state);
+  const messageChanged = state.mode === 'message' && (lastSavedMode !== 'message' || lastSavedMessage !== state.message);
+  if(messageChanged) row.message_started_at = new Date().toISOString();
   const missing = [];
   let lastError = null;
   for(let attempt = 0; attempt < 12; attempt++){
     const {error} = await sb.from(TABLE).upsert(row);
-    if(!error){ lastError = null; break; }
+    if(!error){ lastError = null; lastSavedMode = state.mode; lastSavedMessage = state.message; break; }
     lastError = error;
     const msg = error.message || '';
     const match = /[`"']([a-zA-Z_]+)[`"']\s*column/i.exec(msg) || /column\s*[`"']([a-zA-Z_]+)[`"']/i.exec(msg);
@@ -896,6 +725,7 @@ el('fontFamily').addEventListener('change', e=>{ state.fontFamily = e.target.val
 el('fontSize').addEventListener('input', e=>{ state.fontSize = Number(e.target.value); el('sizeVal').textContent = state.fontSize+'%'; renderPreview(); scheduleSave(); });
 el('saveBtn').addEventListener('click', commit);
 el('forceReloadBtn').addEventListener('click', async ()=>{
+  if(adminLocked || !presenceReady) return;
   el('forceReloadBtn').disabled = true;
   const {error} = await sb.from(TABLE).update({reload_token: new Date().toISOString()}).eq('id', ROW_ID);
   el('reloadStatus').textContent = error ? ('Falha: ' + error.message) : ('Comando enviado ' + new Date().toLocaleTimeString('pt-BR'));
@@ -905,9 +735,60 @@ setInterval(()=>{ if(state.mode==='clock' || state.mode==='countdown') renderPre
 
 renderForm();
 
+/* ===== PRESENÇA: contador de telas + bloqueio de segundo admin ===== */
+const ADMIN_SESSION_ID = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2)+Date.now();
+let presenceChannel = null;
+let adminLocked = false;
+let presenceReady = false;
+
+function setAdminLock(locked){
+  adminLocked = locked;
+  document.body.classList.toggle('adminLocked', locked);
+  if(locked){
+    let box = document.getElementById('singleAdminError');
+    if(!box){
+      box = document.createElement('div'); box.id='singleAdminError';
+      box.innerHTML = '<div><strong>ACESSO ADMINISTRATIVO JÁ ESTÁ EM USO</strong><span>Existe outro painel conectado agora. Feche este painel para evitar comandos concorrentes.</span></div>';
+      document.body.appendChild(box);
+    }
+  }
+}
+
+function updatePresence(state){
+  const entries = Object.entries(state || {});
+  const displays = [];
+  let otherAdmin = false;
+  for(const [key, metas] of entries){
+    for(const meta of (metas || [])){
+      if(meta.type === 'display') displays.push(key);
+      if(meta.type === 'admin' && key !== ADMIN_SESSION_ID) otherAdmin = true;
+    }
+  }
+  const count = new Set(displays).size;
+  if(el('deviceCount')) el('deviceCount').textContent = count;
+  if(el('deviceCountLabel')) el('deviceCountLabel').textContent = count === 0 ? 'Nenhum aparelho conectado' : (count === 1 ? '1 aparelho conectado' : `${count} aparelhos conectados`);
+  setAdminLock(otherAdmin);
+}
+
+function subscribePresence(){
+  try{
+    presenceChannel = sb.channel('letreiro-presence', {config:{presence:{key: ADMIN_SESSION_ID}}});
+    presenceChannel.on('presence', {event:'sync'}, ()=> updatePresence(presenceChannel.presenceState()));
+    presenceChannel.on('presence', {event:'join'}, ()=> updatePresence(presenceChannel.presenceState()));
+    presenceChannel.on('presence', {event:'leave'}, ()=> updatePresence(presenceChannel.presenceState()));
+    presenceChannel.subscribe(async status=>{
+      if(status === 'SUBSCRIBED'){
+        try{ await presenceChannel.track({type:'admin', session:ADMIN_SESSION_ID, since:Date.now()}); }catch(e){}
+        updatePresence(presenceChannel.presenceState());
+        presenceReady = true;
+      }
+    });
+  }catch(e){ console.warn('Presença indisponível', e); }
+}
+
 async function loadInitial(){
   const {data} = await sb.from(TABLE).select('*').eq('id', ROW_ID).single();
-  if(data){ Object.assign(state, fromRow(data)); renderForm(); }
+  if(data){ Object.assign(state, fromRow(data)); lastSavedMode = state.mode; lastSavedMessage = state.message; renderForm(); }
 }
 function subscribeRealtime(){
   sb.channel('letreiro-admin')
@@ -919,6 +800,7 @@ function subscribeRealtime(){
 }
 loadInitial();
 subscribeRealtime();
+subscribePresence();
 </script>
 </body>
 </html>
