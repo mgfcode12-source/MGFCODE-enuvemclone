@@ -208,9 +208,16 @@ function playScroll(direction){
   const screenW = screenEl.clientWidth;
   // Aceita os presets e também uma velocidade personalizada salva como número no Supabase.
   const speedValue = Number(cfg.message_speed);
-  const speed = SPEEDS[cfg.message_speed] || (Number.isFinite(speedValue) && speedValue >= 30 ? Math.min(3000, speedValue) : SPEEDS.normal);
-  // O mínimo curto evita que a antiga trava de 4 s impeça velocidades altas.
-  const duration = Math.max(300, ((textWidth + screenW) / speed) * 1000);
+  const presetSpeed = Object.prototype.hasOwnProperty.call(SPEEDS, String(cfg.message_speed))
+    ? SPEEDS[String(cfg.message_speed)]
+    : null;
+  const speed = presetSpeed !== null
+    ? presetSpeed
+    : (Number.isFinite(speedValue) && speedValue >= 30
+        ? Math.min(3000, Math.max(30, speedValue))
+        : SPEEDS.normal);
+  // Velocidade em pixels por segundo: valores maiores reduzem a duração do percurso.
+  const duration = Math.max(100, ((textWidth + screenW) / speed) * 1000);
 
   const startX = direction === 'scroll-left' ? screenW : -textWidth;
   const endX = direction === 'scroll-left' ? -textWidth : screenW;
