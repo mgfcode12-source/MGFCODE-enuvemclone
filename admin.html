@@ -682,7 +682,8 @@ body.night .settingsSheet{background:#181916!important;color:#f4f5f7!important;}
             </div>
             <div class="row" id="cdEndRow">
               <label>Quando chegar a zero</label>
-              <div class="seg" id="cdEndSeg">
+              <div class="seg wrap" id="cdEndSeg">
+                <button data-v="negative">Contar no negativo</button>
                 <button data-v="clock">Voltar ao relógio</button>
                 <button data-v="zeros">Mostrar zerado</button>
               </div>
@@ -888,7 +889,7 @@ const DEFAULT_CONFIG = {
   mode: 'clock', message: 'BEM-VINDO!', bgColor: '#050505', fontColor: '#ffb000',
   fontFamily: "'VT323', monospace", fontSize: 100, messageDuration: 15, showSeconds: true,
   orientation: 'landscape', messageAnim: 'scroll-left', messageSpeed: 'normal', glow: false, keepAwake: true,
-  countdownTarget: '', countdownLabel: '', countdownEnd: 'clock',
+  countdownTarget: '', countdownLabel: '', countdownEnd: 'negative',
   countdownKind: 'time', countdownTimeOfDay: '19:00',
   countdownDays: 0, countdownHours: 0, countdownMinutes: 10
 };
@@ -991,7 +992,7 @@ function renderForm(){
   el('fontSize').value = state.fontSize;
   el('sizeVal').textContent = state.fontSize + '%';
   el('countdownLabel').value = state.countdownLabel || '';
-  setSeg(el('cdEndSeg'), state.countdownEnd || 'clock');
+  setSeg(el('cdEndSeg'), state.countdownEnd || 'negative');
   setSeg(el('cdKindSeg'), state.countdownKind || 'time');
   el('cdKindTime').style.display = (state.countdownKind || 'time') === 'time' ? '' : 'none';
   el('cdKindDuration').style.display = (state.countdownKind || 'time') === 'duration' ? '' : 'none';
@@ -1013,6 +1014,7 @@ function renderPreview(){
   box.style.color = state.fontColor;
   box.style.fontFamily = state.fontFamily;
   sub.textContent = '';
+  cdOvertime = false;
   if(state.mode === 'message'){
     el('previewMain').textContent = state.message || ' ';
   } else if(state.mode === 'countdown'){
@@ -1024,6 +1026,7 @@ function renderPreview(){
       const parts = String(cd).split('\n');
       el('previewMain').textContent = parts[parts.length - 1];
       if(state.countdownLabel) sub.textContent = state.countdownLabel;
+      if(cdOvertime) box.style.color = negativeColor(state.fontColor);
     }
   } else {
     const now = new Date();
@@ -1032,28 +1035,46 @@ function renderPreview(){
   fitPreviewText();
 }
 
+
+/* Cor "negativa": gira o matiz 180° mantendo brilho/saturação (cinza/branco/preto viram vermelho) */
+function negativeColor(hex){
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex||'').trim());
+  if(!m) return '#ff3b30';
+  let h = m[1]; if(h.length === 3) h = h.split('').map(x=>x+x).join('');
+  const r = parseInt(h.slice(0,2),16)/255, g = parseInt(h.slice(2,4),16)/255, b = parseInt(h.slice(4,6),16)/255;
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), l = (mx+mn)/2, d = mx-mn;
+  if(d < 0.12) return '#ff3b30';
+  const s = d / (1 - Math.abs(2*l - 1));
+  let hue;
+  if(mx === r) hue = ((g-b)/d) % 6; else if(mx === g) hue = (b-r)/d + 2; else hue = (r-g)/d + 4;
+  hue = (hue*60 + 180 + 360) % 360;
+  return `hsl(${Math.round(hue)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%)`;
+}
+
+let cdOvertime = false;
 function formatCountdown(){
+  cdOvertime = false;
   if(!state.countdownTarget) return state.countdownLabel ? state.countdownLabel + '\n0:00' : '0:00';
   const target = new Date(state.countdownTarget).getTime();
   const diff = target - Date.now();
-  let body;
-  if(isNaN(target)){
-    body = '0:00';
-  } else if(diff <= 0){
-    body = state.countdownEnd === 'zeros' ? '0:00' : null;
-  } else {
-    const totalSec = Math.floor(diff / 1000);
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = totalSec => {
     const d = Math.floor(totalSec / 86400);
     const h = Math.floor((totalSec % 86400) / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    const pad = n => String(n).padStart(2, '0');
-    if(d > 0) body = `${d}:${pad(h)}:${pad(m)}:${pad(s)}`;
-    else if(h > 0) body = `${h}:${pad(m)}:${pad(s)}`;
-    else body = `${m}:${pad(s)}`;
+    if(d > 0) return `${d}:${pad(h)}:${pad(m)}:${pad(s)}`;
+    if(h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+    return `${m}:${pad(s)}`;
+  };
+  if(isNaN(target)) return '0:00';
+  if(diff <= 0){
+    if(state.countdownEnd === 'clock') return null;
+    if(state.countdownEnd === 'zeros') return '0:00';
+    cdOvertime = true;
+    return '-' + fmt(Math.ceil(-diff / 1000));
   }
-  if(body === null) return null;
-  return body;
+  return fmt(Math.floor(diff / 1000));
 }
 window.addEventListener('resize', ()=> fitPreviewText());
 function markDirty(){
@@ -1095,7 +1116,7 @@ function toRow(s){
     font_family: s.fontFamily, font_size: s.fontSize, message_duration: s.messageDuration,
     show_seconds: s.showSeconds, orientation: 'landscape', message_anim: s.messageAnim,
     message_speed: s.messageSpeed, keep_awake: s.keepAwake, glow: s.glow,
-    countdown_target: s.countdownTarget ? s.countdownTarget : null, countdown_label: s.countdownLabel || '', countdown_end: s.countdownEnd || 'clock',
+    countdown_target: s.countdownTarget ? s.countdownTarget : null, countdown_label: s.countdownLabel || '', countdown_end: s.countdownEnd || 'negative',
     countdown_kind: s.countdownKind, countdown_time_of_day: s.countdownTimeOfDay,
     countdown_days: s.countdownDays, countdown_hours: s.countdownHours, countdown_minutes: s.countdownMinutes,
     updated_at: new Date().toISOString()
@@ -1108,7 +1129,7 @@ function fromRow(r){
     messageDuration: 15, showSeconds: r.show_seconds !== false, orientation:'landscape',
     messageAnim: r.message_anim || 'none', messageSpeed: r.message_speed || 'normal',
     keepAwake: r.keep_awake !== false, glow: !!r.glow,
-    countdownTarget: r.countdown_target || '', countdownLabel: r.countdown_label || '', countdownEnd: r.countdown_end || 'clock',
+    countdownTarget: r.countdown_target || '', countdownLabel: r.countdown_label || '', countdownEnd: r.countdown_end || 'negative',
     countdownKind: r.countdown_kind || 'time', countdownTimeOfDay: r.countdown_time_of_day || '19:00',
     countdownDays: Number(r.countdown_days) || 0, countdownHours: Number(r.countdown_hours) || 0,
     countdownMinutes: r.countdown_minutes != null ? Number(r.countdown_minutes) : 10
