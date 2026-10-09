@@ -580,6 +580,42 @@ document.addEventListener('visibilitychange', async () => {
   Presença é somente para o contador de aparelhos no admin.
   Ela não participa da configuração do letreiro.
 */
+/* Nome do aparelho (modelo quando o navegador deixa) */
+let deviceModel = '';
+function guessDeviceName(){
+  const ua = navigator.userAgent || '';
+  let plat = /Android/i.test(ua) ? 'Android' : /iPhone/i.test(ua) ? 'iPhone' : /iPad/i.test(ua) ? 'iPad' : /Windows/i.test(ua) ? 'Windows' : /Mac/i.test(ua) ? 'Mac' : /Linux|CrOS/i.test(ua) ? 'Linux' : 'Aparelho';
+  let model = deviceModel;
+  if(!model && plat === 'Android'){
+    const m = /Android[^;)]*;\s*([^;)]+?)(?:\s+Build|\)|;)/.exec(ua);
+    if(m && m[1] && m[1] !== 'K' && !/^Android/i.test(m[1])) model = m[1].trim();
+  }
+  return {platform: plat, model: model || ''};
+}
+
+let presenceCh = null, presenceOk = false, presenceTimer = null;
+function currentDims(){
+  // O letreiro é sempre horizontal: se o celular está em pé, a tela é girada por CSS.
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const rotate = window.matchMedia('(orientation: portrait)').matches && window.matchMedia('(max-width: 900px)').matches;
+  return rotate ? {w: vh, h: vw} : {w: vw, h: vh};
+}
+function sendPresence(){
+  clearTimeout(presenceTimer);
+  presenceTimer = setTimeout(async () => {
+    if(!presenceCh || !presenceOk) return;
+    const d = currentDims(), dev = guessDeviceName();
+    try{
+      await presenceCh.track({
+        type:'display', since: presenceSince,
+        w: d.w, h: d.h, dpr: window.devicePixelRatio || 1,
+        platform: dev.platform, model: dev.model
+      });
+    }catch(e){}
+  }, 400);
+}
+const presenceSince = Date.now();
+
 function subscribePresence(){
   try{
     const myId =
@@ -587,20 +623,25 @@ function subscribePresence(){
         ? crypto.randomUUID()
         : String(Math.random()).slice(2) + Date.now();
 
-    const channel = sb.channel('letreiro-presence-v2', {
+    presenceCh = sb.channel('letreiro-presence-v2', {
       config:{presence:{key:myId}}
     });
 
-    channel.subscribe(async status => {
+    presenceCh.subscribe(async status => {
       if(status === 'SUBSCRIBED'){
+        presenceOk = true;
+        // modelo exato (Chrome Android) só vem por esta API
         try{
-          await channel.track({
-            type:'display',
-            since:Date.now()
-          });
+          if(navigator.userAgentData && navigator.userAgentData.getHighEntropyValues){
+            const hv = await navigator.userAgentData.getHighEntropyValues(['model']);
+            if(hv && hv.model) deviceModel = hv.model;
+          }
         }catch(e){}
+        sendPresence();
       }
     });
+    window.addEventListener('resize', sendPresence);
+    window.addEventListener('orientationchange', sendPresence);
   }catch(error){
     console.warn('[LETREIRO] Presence indisponível:', error);
   }
