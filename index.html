@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Letreiro LED</title>
-<!-- SUPABASE-COMMS-V3 -->
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#050505">
 <meta name="mobile-web-app-capable" content="yes">
@@ -36,6 +35,7 @@
     line-height:1.15; word-wrap:break-word; white-space:pre-wrap;
   }
   #screenSub{opacity:.55; font-size:.28em; margin-top:.3em; letter-spacing:.05em;}
+  #screen.offline #screenContent{opacity:.35;}
 </style>
 </head>
 <body>
@@ -64,10 +64,10 @@ const DEFAULT_CONFIG = {
   mode: 'clock', message: 'BEM-VINDO!', bg_color: '#050505', font_color: '#ffb000',
   font_family: "'VT323', monospace", font_size: 100, message_duration: 15, show_seconds: true,
   message_anim: 'scroll-left', message_speed: 'normal', glow: false, keep_awake: true,
-  countdown_target: null, countdown_label: '', countdown_end: 'negative',
+  countdown_target: null, countdown_label: '', countdown_end: 'clock',
   message_started_at: null, updated_at: null, reload_token: null
 };
-const SPEEDS = {slow: 70, normal: 130, fast: 220}; // pixels por segundo
+const SPEEDS = {slow: 70, normal: 130, fast: 220, veryfast: 450, turbo: 900}; // pixels por segundo
 
 const screenEl = document.getElementById('screen');
 const content = document.getElementById('screenContent');
@@ -206,8 +206,11 @@ function playScroll(direction){
 
   const textWidth = widestLineWidth(main.textContent, fontPx, family);
   const screenW = screenEl.clientWidth;
-  const speed = SPEEDS[cfg.message_speed] || SPEEDS.normal;
-  const duration = Math.max(4000, ((textWidth + screenW) / speed) * 1000);
+  // Aceita os presets e também uma velocidade personalizada salva como número no Supabase.
+  const speedValue = Number(cfg.message_speed);
+  const speed = SPEEDS[cfg.message_speed] || (Number.isFinite(speedValue) && speedValue >= 30 ? Math.min(3000, speedValue) : SPEEDS.normal);
+  // O mínimo curto evita que a antiga trava de 4 s impeça velocidades altas.
+  const duration = Math.max(300, ((textWidth + screenW) / speed) * 1000);
 
   const startX = direction === 'scroll-left' ? screenW : -textWidth;
   const endX = direction === 'scroll-left' ? -textWidth : screenW;
@@ -301,55 +304,29 @@ function showClock(){
 }
 
 /* ===== CONTAGEM REGRESSIVA ===== */
-
-/* Cor "negativa": gira o matiz 180° mantendo brilho/saturação (cinza/branco/preto viram vermelho) */
-function negativeColor(hex){
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex||'').trim());
-  if(!m) return '#ff3b30';
-  let h = m[1]; if(h.length === 3) h = h.split('').map(x=>x+x).join('');
-  const r = parseInt(h.slice(0,2),16)/255, g = parseInt(h.slice(2,4),16)/255, b = parseInt(h.slice(4,6),16)/255;
-  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), l = (mx+mn)/2, d = mx-mn;
-  if(d < 0.12) return '#ff3b30';
-  const s = d / (1 - Math.abs(2*l - 1));
-  let hue;
-  if(mx === r) hue = ((g-b)/d) % 6; else if(mx === g) hue = (b-r)/d + 2; else hue = (r-g)/d + 4;
-  hue = (hue*60 + 180 + 360) % 360;
-  return `hsl(${Math.round(hue)}, ${Math.round(s*100)}%, ${Math.round(l*100)}%)`;
-}
-
-function fmtDuration(totalSec){
+function countdownBody(c){
+  if(!c.countdown_target) return '0:00';
+  const target = new Date(c.countdown_target).getTime();
+  if(isNaN(target)) return '0:00';
+  const diff = target - nowMs();
+  if(diff <= 0) return c.countdown_end === 'zeros' ? '0:00' : 'DONE';
+  const totalSec = Math.floor(diff / 1000);
   const d = Math.floor(totalSec / 86400);
   const h = Math.floor((totalSec % 86400) / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
-  const sec = totalSec % 60;
+  const s = totalSec % 60;
   const p = n => String(n).padStart(2, '0');
-  if(d > 0) return `${d}:${p(h)}:${p(m)}:${p(sec)}`;
-  if(h > 0) return `${h}:${p(m)}:${p(sec)}`;
-  return `${m}:${p(sec)}`;
-}
-
-// Retorna {text, over}. text === 'DONE' => voltar ao relógio.
-function countdownState(c){
-  if(!c.countdown_target) return {text:'0:00', over:false};
-  const target = new Date(c.countdown_target).getTime();
-  if(isNaN(target)) return {text:'0:00', over:false};
-  const diff = target - nowMs();
-  if(diff <= 0){
-    if(c.countdown_end === 'clock') return {text:'DONE', over:false};
-    if(c.countdown_end === 'zeros') return {text:'0:00', over:false};
-    // padrão: continua contando no negativo
-    return {text: '-' + fmtDuration(Math.ceil(-diff / 1000)), over:true};
-  }
-  return {text: fmtDuration(Math.floor(diff / 1000)), over:false};
+  if(d > 0) return `${d}:${p(h)}:${p(m)}:${p(s)}`;
+  if(h > 0) return `${h}:${p(m)}:${p(s)}`;
+  return `${m}:${p(s)}`;
 }
 
 function tickCountdown(){
-  const st = countdownState(cfg);
-  if(st.text === 'DONE'){ showClock(); return; }
-  screenEl.style.color = st.over ? negativeColor(cfg.font_color) : cfg.font_color;
+  const body = countdownBody(cfg);
+  if(body === 'DONE'){ showClock(); return; }
   const label = cfg.countdown_label || '';
-  if(main.textContent === st.text && sub.textContent === label) return;
-  main.textContent = st.text;
+  if(main.textContent === body && sub.textContent === label) return;
+  main.textContent = body;
   sub.textContent = label;
   fitDisplay();
 }
@@ -382,9 +359,13 @@ function applyConfig(c){
   keepScreenAwake();
 
   if(c.mode === 'message'){
-    // Mensagem permanece na tela indefinidamente.
-    // Ela só sai quando o modo for alterado para relógio ou contagem regressiva.
+    // O tempo da mensagem conta a partir de quando ela foi enviada (hora do servidor)
+    const started = new Date(c.message_started_at || c.updated_at || 0).getTime();
+    const elapsed = (!started || isNaN(started)) ? 0 : (nowMs() - started) / 1000;
+    const remaining = (c.message_duration || 15) - elapsed;
+    if(remaining <= 0){ showClock(); return; }
     showMessage(c.message, c.message_anim);
+    revertTimer = setTimeout(showClock, remaining * 1000);
   } else if(c.mode === 'countdown'){
     showCountdown();
   } else {
@@ -422,6 +403,8 @@ function checkReload(token){
   }
   if(seen !== token){
     try{ localStorage.setItem(RELOAD_KEY, token); }catch(e){}
+    memReloadToken = token;
+    location.reload();
   }
 }
 
@@ -439,212 +422,78 @@ function ingest(raw){
   applyConfig(merged);
 }
 
-/* ============================================================
-   SUPABASE — COMUNICAÇÃO NOVA
-   ============================================================
-
-   FONTE ÚNICA DE VERDADE:
-       public.letreiro_config / id = main
-
-   FLUXO:
-       ADMIN
-         ↓
-       upsert()
-         ↓
-       PostgreSQL
-         ↓
-       Supabase Realtime / postgres_changes
-         ↓
-       INDEX
-         ↓
-       ingest()
-         ↓
-       tela
-
-   Não existe:
-   - Broadcast de configuração
-   - polling para funcionamento normal
-   - sincronização por localStorage
-   - Presence para configuração
-
-   O localStorage abaixo serve SOMENTE como cache de inicialização
-   offline; ele nunca substitui o banco.
-   ============================================================ */
-
+/* ===== BANCO: consulta de reserva + tempo real ===== */
 let rtOk = false;
-let dbChannel = null;
-let rtRetryTimer = null;
+let commandChannel = null;
 
 async function fetchConfig(){
-  if(!sb) return false;
-
+  if(!sb) return;
   try{
-    const {data, error} = await sb
-      .from(TABLE)
-      .select('*')
-      .eq('id', ROW_ID)
-      .single();
-
-    if(error) throw error;
-    if(!data) return false;
-
+    const {data, error} = await sb.from(TABLE).select('*').eq('id', ROW_ID).maybeSingle();
+    if(error || !data) return;
     ingest(data);
-    return true;
-  }catch(error){
-    console.error('[LETREIRO] leitura Supabase:', error);
-    return false;
-  }
+  }catch(e){}
 }
 
-function scheduleRealtimeRetry(){
-  if(rtRetryTimer || !navigator.onLine) return;
-  rtRetryTimer = setTimeout(async () => {
-    rtRetryTimer = null;
-    await restartRealtime();
-  }, 2500);
+// Realtime entrega mudanças imediatamente. O polling é só uma rede de segurança: 60 s normal / 15 s se o Realtime cair.
+function schedulePoll(){
+  setTimeout(async () => { await fetchConfig(); schedulePoll(); }, rtOk ? 60000 : 15000);
 }
 
 function subscribeRealtime(){
-  if(!sb) return;
-
+  // COMANDO DIRETO: somente recebe. Nunca envia configuração ao admin.
   try{
-    if(dbChannel){
-      sb.removeChannel(dbChannel).catch(() => {});
-      dbChannel = null;
-    }
-
-    dbChannel = sb
-      .channel('letreiro-display-v2')
-      .on(
-        'postgres_changes',
-        {
-          event:'*',
-          schema:'public',
-          table:TABLE,
-          filter:`id=eq.${ROW_ID}`
-        },
-        payload => {
-          console.log('[LETREIRO] Realtime recebido:', payload.eventType, payload.new);
-          lastOk = Date.now();
-          rtOk = true;
-          if(payload.new) ingest(payload.new);
+    commandChannel = sb.channel('letreiro-command');
+    commandChannel
+      .on('broadcast', {event:'state'}, payload => {
+        try{
+          const incoming = payload && payload.payload;
+          if(!incoming || typeof incoming !== 'object') return;
+          ingest(incoming);
+        }catch(error){
+          console.warn('Comando do Admin inválido:', error);
         }
-      )
-      .subscribe(async status => {
-        console.log('[LETREIRO] Realtime:', status);
-        rtOk = status === 'SUBSCRIBED';
-
+      })
+      .subscribe(status => {
         if(status === 'SUBSCRIBED'){
-          lastOk = Date.now();
-          await fetchConfig();
-        } else if(status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED'){
-          scheduleRealtimeRetry();
+          fetchConfig();
         }
       });
-  }catch(error){
-    rtOk = false;
-    console.error('[LETREIRO] erro ao conectar Realtime:', error);
-    scheduleRealtimeRetry();
-  }
-}
-
-async function restartRealtime(){
-  try{
-    if(dbChannel){
-      await sb.removeChannel(dbChannel);
-      dbChannel = null;
-    }
   }catch(e){}
 
-  rtOk = false;
-  subscribeRealtime();
-  await fetchConfig();
-}
-
-window.addEventListener('online', async () => {
-  await syncTime();
-  await restartRealtime();
-});
-
-document.addEventListener('visibilitychange', async () => {
-  if(document.visibilityState === 'visible'){
-    keepScreenAwake();
-    requestLandscape();
-    applyRotation();
-    if(!rtOk) await restartRealtime();
-    else await fetchConfig();
-  }
-});
-
-/*
-  Presença é somente para o contador de aparelhos no admin.
-  Ela não participa da configuração do letreiro.
-*/
-/* Nome do aparelho (modelo quando o navegador deixa) */
-let deviceModel = '';
-function guessDeviceName(){
-  const ua = navigator.userAgent || '';
-  let plat = /Android/i.test(ua) ? 'Android' : /iPhone/i.test(ua) ? 'iPhone' : /iPad/i.test(ua) ? 'iPad' : /Windows/i.test(ua) ? 'Windows' : /Mac/i.test(ua) ? 'Mac' : /Linux|CrOS/i.test(ua) ? 'Linux' : 'Aparelho';
-  let model = deviceModel;
-  if(!model && plat === 'Android'){
-    const m = /Android[^;)]*;\s*([^;)]+?)(?:\s+Build|\)|;)/.exec(ua);
-    if(m && m[1] && m[1] !== 'K' && !/^Android/i.test(m[1])) model = m[1].trim();
-  }
-  return {platform: plat, model: model || ''};
-}
-
-let presenceCh = null, presenceOk = false, presenceTimer = null;
-function currentDims(){
-  // O letreiro é sempre horizontal: se o celular está em pé, a tela é girada por CSS.
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const rotate = window.matchMedia('(orientation: portrait)').matches && window.matchMedia('(max-width: 900px)').matches;
-  return rotate ? {w: vh, h: vw} : {w: vw, h: vh};
-}
-function sendPresence(){
-  clearTimeout(presenceTimer);
-  presenceTimer = setTimeout(async () => {
-    if(!presenceCh || !presenceOk) return;
-    const d = currentDims(), dev = guessDeviceName();
-    try{
-      await presenceCh.track({
-        type:'display', since: presenceSince,
-        w: d.w, h: d.h, dpr: window.devicePixelRatio || 1,
-        platform: dev.platform, model: dev.model
-      });
-    }catch(e){}
-  }, 400);
-}
-const presenceSince = Date.now();
-
-function subscribePresence(){
-  try{
-    const myId =
-      (window.crypto && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : String(Math.random()).slice(2) + Date.now();
-
-    presenceCh = sb.channel('letreiro-presence-v2', {
-      config:{presence:{key:myId}}
+  // FONTE DE VERDADE PERSISTIDA: recupera qualquer mudança perdida.
+  sb.channel('letreiro-display-db')
+    .on('postgres_changes', {
+      event:'*',
+      schema:'public',
+      table:TABLE,
+      filter:`id=eq.${ROW_ID}`
+    }, payload => {
+      if(payload.new) ingest(payload.new);
+    })
+    .subscribe(status => {
+      rtOk = (status === 'SUBSCRIBED');
+      if(rtOk) fetchConfig();
     });
 
-    presenceCh.subscribe(async status => {
+  // Presença é apenas telemetria efêmera para o contador do admin.
+  try{
+    const myId = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : String(Math.random()).slice(2) + Date.now();
+
+    const pres = sb.channel('letreiro-presence', {
+      config:{presence:{key: myId}}
+    });
+
+    pres.subscribe(async status => {
       if(status === 'SUBSCRIBED'){
-        presenceOk = true;
-        // modelo exato (Chrome Android) só vem por esta API
         try{
-          if(navigator.userAgentData && navigator.userAgentData.getHighEntropyValues){
-            const hv = await navigator.userAgentData.getHighEntropyValues(['model']);
-            if(hv && hv.model) deviceModel = hv.model;
-          }
+          await pres.track({type:'display', since:Date.now()});
         }catch(e){}
-        sendPresence();
       }
     });
-    window.addEventListener('resize', sendPresence);
-    window.addEventListener('orientationchange', sendPresence);
-  }catch(error){
-    console.warn('[LETREIRO] Presence indisponível:', error);
-  }
+  }catch(e){}
 }
 
 /* ===== TELA SEM DESLIGAR (Wake Lock) ===== */
@@ -664,8 +513,17 @@ async function keepScreenAwake(){
   }catch(e){}
 }
 
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible'){
+    keepScreenAwake();
+    requestLandscape();
+    applyRotation();
+    fetchConfig();
+  }
+});
 window.addEventListener('resize', () => applyRotation());
 window.addEventListener('orientationchange', () => setTimeout(() => { applyRotation(); requestLandscape(); }, 100));
+window.addEventListener('online', () => { syncTime(); fetchConfig(); });
 document.addEventListener('pointerdown', keepScreenAwake, {passive:true});
 
 /* ===== INÍCIO ===== */
@@ -692,34 +550,25 @@ document.addEventListener('pointerdown', keepScreenAwake, {passive:true});
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => refitCurrent());
 
   if(sb){
-    syncTime().then(async () => {
-      await fetchConfig();
-      subscribeRealtime();
-      subscribePresence();
-    });
+    syncTime().then(fetchConfig);
+    subscribeRealtime();
+    schedulePoll();
     setInterval(syncTime, 10 * 60 * 1000);
   } else {
     // sem biblioteca (sem internet na abertura): tenta de novo quando a internet voltar
     setInterval(() => { if(navigator.onLine) location.reload(); }, 60000);
   }
 
-  // Manutenção leve: nunca escurece o letreiro por falta de tráfego.
-  // Realtime faz a sincronização; este intervalo serve apenas para reforçar o Wake Lock.
+  // Manutenção a cada 5 s: sinal de "sem conexão" só depois de 2 min sem resposta
   let beat = 0;
   setInterval(() => {
     beat++;
-    if(beat % 12 === 0) keepScreenAwake();
+    screenEl.classList.toggle('offline', sb && (Date.now() - lastOk > 120000));
+    if(beat % 12 === 0) keepScreenAwake(); // a cada 1 min reforça a tela ligada
   }, 5000);
 
-  // Não deixa um Service Worker antigo servir uma versão velha do letreiro.
-  // A comunicação em tempo real é feita diretamente pelo Supabase Realtime.
   if('serviceWorker' in navigator){
-    window.addEventListener('load', async () => {
-      try{
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map(r => r.unregister()));
-      }catch(e){}
-    });
+    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
   }
 })();
 </script>
