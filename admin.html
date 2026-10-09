@@ -292,7 +292,19 @@ body.night .secondary{background:#303035}
           </div>
           <div class="row">
             <label>Velocidade</label>
-            <div class="seg" id="settingsSpeedSeg"><button data-v="slow">Devagar</button><button data-v="normal">Normal</button><button data-v="fast">Rápida</button></div>
+            <div class="seg wrapSeg" id="settingsSpeedSeg">
+              <button data-v="slow">Devagar</button><button data-v="normal">Normal</button><button data-v="fast">Rápida</button><button data-v="veryfast">Muito rápida</button><button data-v="turbo">Turbo</button>
+            </div>
+            <div style="margin-top:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center">
+              <div>
+                <label for="settingsSpeedCustom" style="margin-bottom:5px">Ou defina a velocidade exata</label>
+                <div class="hint" style="margin-top:0">Pixels por segundo · de 30 a 3.000</div>
+              </div>
+              <div style="width:138px;position:relative">
+                <input id="settingsSpeedCustom" type="number" inputmode="numeric" min="30" max="3000" step="10" value="130" aria-label="Velocidade personalizada em pixels por segundo" style="padding-right:38px;text-align:right;font-weight:700">
+                <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--dim);pointer-events:none">px/s</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -550,7 +562,11 @@ function renderForm(){
   el('message').value = state.message;
   setSeg(el('secSeg'), state.showSeconds ? '1' : '0');
   setSeg(el('settingsAnimSeg'), state.messageAnim || 'none');
-  setSeg(el('settingsSpeedSeg'), state.messageSpeed || 'normal');
+  const speedPresets = {slow:70, normal:130, fast:220, veryfast:450, turbo:900};
+  const storedSpeed = String(state.messageSpeed || 'normal');
+  const isPresetSpeed = Object.prototype.hasOwnProperty.call(speedPresets, storedSpeed);
+  setSeg(el('settingsSpeedSeg'), isPresetSpeed ? storedSpeed : '');
+  el('settingsSpeedCustom').value = isPresetSpeed ? speedPresets[storedSpeed] : Math.max(30, Math.min(3000, Number(storedSpeed) || 130));
   el('settingsGlowToggle').classList.toggle('on', !!state.glow);
   el('settingsGlowToggle').setAttribute('aria-checked', !!state.glow);
   setSeg(el('wakeSeg'), state.keepAwake === false ? '0' : '1');
@@ -809,6 +825,16 @@ el('fontSize').addEventListener('input', e=>{ state.fontSize = Number(e.target.v
 el('saveBtn').addEventListener('click', commit);
 el('settingsAnimSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageAnim=b.dataset.v; renderForm(); markDirty(); });
 el('settingsSpeedSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageSpeed=b.dataset.v; renderForm(); markDirty(); });
+el('settingsSpeedCustom').addEventListener('change', e=>{
+  const input = e.currentTarget;
+  let value = Number(input.value);
+  if(!Number.isFinite(value)) value = 130;
+  value = Math.round(Math.max(30, Math.min(3000, value)));
+  input.value = value;
+  state.messageSpeed = String(value);
+  setSeg(el('settingsSpeedSeg'), '');
+  markDirty();
+});
 el('settingsGlowToggle').addEventListener('click', ()=>{ state.glow=!state.glow; renderForm(); markDirty(); });
 el('forceReloadBtn').addEventListener('click', async ()=>{
   if(!sb) return;
