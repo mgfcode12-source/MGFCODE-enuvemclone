@@ -730,6 +730,9 @@ async function commit(){
     return;
   }
 
+  // Lê o campo diretamente antes de salvar, inclusive se clicar em Aplicar
+  // imediatamente após digitar a velocidade personalizada.
+  readCustomSpeed();
   const row = toRow(state);
 
   const messageChanged =
@@ -825,14 +828,22 @@ el('fontSize').addEventListener('input', e=>{ state.fontSize = Number(e.target.v
 el('saveBtn').addEventListener('click', commit);
 el('settingsAnimSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageAnim=b.dataset.v; renderForm(); markDirty(); });
 el('settingsSpeedSeg').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b)return; state.messageSpeed=b.dataset.v; renderForm(); markDirty(); });
-el('settingsSpeedCustom').addEventListener('change', e=>{
-  const input = e.currentTarget;
+function readCustomSpeed(){
+  const input = el('settingsSpeedCustom');
   let value = Number(input.value);
   if(!Number.isFinite(value)) value = 130;
   value = Math.round(Math.max(30, Math.min(3000, value)));
-  input.value = value;
+  input.value = String(value);
   state.messageSpeed = String(value);
   setSeg(el('settingsSpeedSeg'), '');
+  return value;
+}
+el('settingsSpeedCustom').addEventListener('input', ()=>{
+  readCustomSpeed();
+  markDirty();
+});
+el('settingsSpeedCustom').addEventListener('change', ()=>{
+  readCustomSpeed();
   markDirty();
 });
 el('settingsGlowToggle').addEventListener('click', ()=>{ state.glow=!state.glow; renderForm(); markDirty(); });
