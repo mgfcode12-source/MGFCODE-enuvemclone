@@ -67,7 +67,7 @@ const DEFAULT_CONFIG = {
   countdown_target: null, countdown_label: '', countdown_end: 'clock',
   message_started_at: null, updated_at: null, reload_token: null
 };
-const SPEEDS = {slow: 70, normal: 130, fast: 220, veryfast: 450, turbo: 900}; // pixels por segundo
+const SPEEDS = {slow: 70, normal: 130, fast: 220, veryfast: 450, turbo: 2400}; // pixels por segundo; TURBO deliberadamente muito mais rápido
 
 const screenEl = document.getElementById('screen');
 const content = document.getElementById('screenContent');
@@ -206,18 +206,28 @@ function playScroll(direction){
 
   const textWidth = widestLineWidth(main.textContent, fontPx, family);
   const screenW = screenEl.clientWidth;
-  // Aceita os presets e também uma velocidade personalizada salva como número no Supabase.
-  const speedValue = Number(cfg.message_speed);
-  const presetSpeed = Object.prototype.hasOwnProperty.call(SPEEDS, String(cfg.message_speed))
-    ? SPEEDS[String(cfg.message_speed)]
-    : null;
-  const speed = presetSpeed !== null
-    ? presetSpeed
+  // Lê os presets enviados pelo admin e também valores numéricos personalizados.
+  // Normaliza maiúsculas, espaços e acentos para não perder o preset TURBO por diferenças de formato.
+  const rawSpeed = String(cfg.message_speed ?? 'normal').trim().toLowerCase();
+  const speedKey = rawSpeed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s_-]+/g, '');
+  const aliases = {
+    devagar: 'slow', lento: 'slow', slow: 'slow',
+    normal: 'normal', padrao: 'normal', medio: 'normal',
+    rapida: 'fast', rapido: 'fast', fast: 'fast',
+    muitorapida: 'veryfast', muitorapido: 'veryfast', veryfast: 'veryfast',
+    turbo: 'turbo', ultrarapido: 'turbo', ultrarapida: 'turbo', superfast: 'turbo',
+    maximo: 'turbo', maxima: 'turbo'
+  };
+  const presetKey = aliases[speedKey] || (Object.prototype.hasOwnProperty.call(SPEEDS, speedKey) ? speedKey : null);
+  const speedValue = Number(rawSpeed.replace(',', '.').replace(/\s*(px\/s|px\s*\/\s*s|pixels?\s*por\s*segundo)\s*/i, ''));
+  const speed = presetKey
+    ? SPEEDS[presetKey]
     : (Number.isFinite(speedValue) && speedValue >= 30
         ? Math.min(3000, Math.max(30, speedValue))
         : SPEEDS.normal);
-  // Velocidade em pixels por segundo: valores maiores reduzem a duração do percurso.
-  const duration = Math.max(100, ((textWidth + screenW) / speed) * 1000);
+  // TURBO = 2400 px/s (bem mais rápido que 130 px/s no Normal).
+  // Duração menor significa percurso mais rápido; sem limite artificial de 100 ms.
+  const duration = Math.max(40, ((textWidth + screenW) / speed) * 1000);
 
   const startX = direction === 'scroll-left' ? screenW : -textWidth;
   const endX = direction === 'scroll-left' ? -textWidth : screenW;
