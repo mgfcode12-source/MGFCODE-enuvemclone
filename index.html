@@ -64,7 +64,7 @@ const DEFAULT_CONFIG = {
   mode: 'clock', message: 'BEM-VINDO!', bg_color: '#050505', font_color: '#ffb000',
   font_family: "'VT323', monospace", font_size: 100, message_duration: 15, show_seconds: true,
   message_anim: 'scroll-left', message_speed: 'normal', glow: false, keep_awake: true,
-  countdown_target: null, countdown_label: '', countdown_end: 'clock',
+  countdown_target: null, countdown_label: '', countdown_end: 'negative',
   message_started_at: null, updated_at: null, reload_token: null
 };
 const SPEEDS = {slow: 70, normal: 130, fast: 220, veryfast: 450, turbo: 2400}; // pixels por segundo; TURBO deliberadamente muito mais rápido
@@ -323,19 +323,33 @@ function showClock(){
 /* ===== CONTAGEM REGRESSIVA ===== */
 function countdownBody(c){
   if(!c.countdown_target) return '0:00';
+
   const target = new Date(c.countdown_target).getTime();
-  if(isNaN(target)) return '0:00';
+  if(!Number.isFinite(target)) return '0:00';
+
+  // Positivo antes do alvo; negativo depois dele. O modo é definido no Admin.
   const diff = target - nowMs();
-  if(diff <= 0) return c.countdown_end === 'zeros' ? '0:00' : 'DONE';
-  const totalSec = Math.floor(diff / 1000);
+  if(diff <= 0){
+    if(c.countdown_end === 'zeros') return '0:00';
+    if(c.countdown_end !== 'negative') return 'DONE';
+  }
+
+  // Math.ceil mantém a contagem regressiva precisa e inicia o negativo em -0:01.
+  const totalSec = diff > 0
+    ? Math.floor(diff / 1000)
+    : Math.max(1, Math.ceil(Math.abs(diff) / 1000));
+
   const d = Math.floor(totalSec / 86400);
   const h = Math.floor((totalSec % 86400) / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
   const p = n => String(n).padStart(2, '0');
-  if(d > 0) return `${d}:${p(h)}:${p(m)}:${p(s)}`;
-  if(h > 0) return `${h}:${p(m)}:${p(s)}`;
-  return `${m}:${p(s)}`;
+  let formatted;
+  if(d > 0) formatted = `${d}:${p(h)}:${p(m)}:${p(s)}`;
+  else if(h > 0) formatted = `${h}:${p(m)}:${p(s)}`;
+  else formatted = `${m}:${p(s)}`;
+
+  return diff <= 0 ? `-${formatted}` : formatted;
 }
 
 function tickCountdown(){
